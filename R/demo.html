@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Encounter rate simulator</title>
+
+<script>// Hide empty <a> tag within highlighted CodeBlock for screen reader accessibility (see https://github.com/jgm/pandoc/issues/6352#issuecomment-626106786) -->
+// v0.0.1
+// Written by JooYoung Seo (jooyoung@psu.edu) and Atsushi Yasumoto on June 1st, 2020.
+
+document.addEventListener('DOMContentLoaded', function() {
+  const codeList = document.getElementsByClassName("sourceCode");
+  for (var i = 0; i < codeList.length; i++) {
+    var linkList = codeList[i].getElementsByTagName('a');
+    for (var j = 0; j < linkList.length; j++) {
+      if (linkList[j].innerHTML === "") {
+        linkList[j].setAttribute('aria-hidden', 'true');
+      }
+    }
+  }
+});
+</script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css" data-origin="pandoc">
+code.sourceCode > span { display: inline-block; line-height: 1.25; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Encounter rate simulator</h1>
+
+
+
+<p>This vignette describes our analysis in a step-by-step guide.</p>
+<div id="setup" class="section level2">
+<h2>Setup</h2>
+<p><strong>1.Setup this directory</strong> on your local computer by either cloning this repo via <code>git</code> or downloading it as a zipped folder.</p>
+<p><strong>2. Start a new script</strong> in <code>RStudio</code> and save it within this directory’s <code>R</code> folder.</p>
+<p><strong>3. Load libraries</strong> at the top of your script. Install the packages you don’t yet have.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a><span class="kw">library</span>(rstudioapi)</span>
+<span id="cb1-2"><a href="#cb1-2"></a><span class="kw">library</span>(dplyr)</span>
+<span id="cb1-3"><a href="#cb1-3"></a><span class="kw">library</span>(truncnorm)</span>
+<span id="cb1-4"><a href="#cb1-4"></a><span class="kw">library</span>(solartime)</span>
+<span id="cb1-5"><a href="#cb1-5"></a><span class="kw">library</span>(boot)</span></code></pre></div>
+<p><strong>4. Source functions</strong> at the top of your script.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1"></a><span class="kw">source</span>(<span class="st">&quot;function-ais.R&quot;</span>)</span>
+<span id="cb2-2"><a href="#cb2-2"></a><span class="kw">source</span>(<span class="st">&quot;function-simulator.R&quot;</span>)</span>
+<span id="cb2-3"><a href="#cb2-3"></a><span class="kw">source</span>(<span class="st">&quot;function-impacts.R&quot;</span>)</span></code></pre></div>
+</div>
+<div id="marine-traffic-data" class="section level2">
+<h2>Marine traffic data</h2>
+<div id="formatting-ais" class="section level3">
+<h3>Formatting AIS</h3>
+<p>Subsequent steps will require AIS data that meet the following criteria:</p>
+<ul>
+<li>Each row contains details for a single vessel.</li>
+<li>There is a column named <code>id</code>, containing a unique identifier for each vessel (e.g., MMSI).<br />
+</li>
+<li>There is a column named <code>type</code>, containing the category or class of vessel.<br />
+</li>
+<li>There is a column named <code>sog</code>, containing speed-over-ground in meters per second.<br />
+</li>
+<li>There is a column named <code>length</code>, containing vessel length in meters.<br />
+</li>
+<li>There are columns named <code>year</code> (e.g., 2018), <code>month</code> (e.g., 7 for July), and <code>doy</code> for day-of-year (e.g., 182 for July 1st).<br />
+</li>
+<li>There is a column named <code>hour</code> for the local hour of day in which this record occurred.<br />
+</li>
+<li>There are columns named <code>x</code> and <code>y</code> for longitude and latitude, respectively, in decimal degrees.<br />
+</li>
+<li>Records for each unique vessel are filtered to only one per hour. This is to ensure that frequently-reporting vessels are not overrepresented but that vessels that occur often or linger in the area are not underrepresented.</li>
+</ul>
+<div id="example-script" class="section level4">
+<h4>Example script</h4>
+<p>Here is the code we used to format the raw AIS data provided to us by the Canadian Coast Guard. You may use this dataset to familiarize yourself with the simulator.</p>
+<p>First, read in the raw data:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1"></a>ais &lt;-<span class="st"> </span><span class="kw">read.csv</span>(<span class="st">&quot;../data/ais/ais-2018.csv&quot;</span>)</span></code></pre></div>
+<p>Check out the AIS data in its raw form:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1"></a><span class="kw">nrow</span>(ais)</span>
+<span id="cb4-2"><a href="#cb4-2"></a><span class="co">#&gt; [1] 259727</span></span>
+<span id="cb4-3"><a href="#cb4-3"></a></span>
+<span id="cb4-4"><a href="#cb4-4"></a><span class="kw">head</span>(ais)</span>
+<span id="cb4-5"><a href="#cb4-5"></a><span class="co">#&gt;    rowid      Local.Time Year month day     time ampm   ID           Type</span></span>
+<span id="cb4-6"><a href="#cb4-6"></a><span class="co">#&gt; 1 448787 2018-07-01 0:00 2018     7   1 12:00:00   AM 1303            Tug</span></span>
+<span id="cb4-7"><a href="#cb4-7"></a><span class="co">#&gt; 2 448788 2018-07-01 0:00 2018     7   1 12:00:00   AM 2079        Fishing</span></span>
+<span id="cb4-8"><a href="#cb4-8"></a><span class="co">#&gt; 3 448789 2018-07-01 0:00 2018     7   1 12:00:00   AM  417        Fishing</span></span>
+<span id="cb4-9"><a href="#cb4-9"></a><span class="co">#&gt; 4 448790 2018-07-01 0:01 2018     7   1 12:01:00   AM  417        Fishing</span></span>
+<span id="cb4-10"><a href="#cb4-10"></a><span class="co">#&gt; 5 448791 2018-07-01 0:02 2018     7   1 12:02:00   AM  417        Fishing</span></span>
+<span id="cb4-11"><a href="#cb4-11"></a><span class="co">#&gt; 6 448792 2018-07-01 0:02 2018     7   1 12:02:00   AM 1938 Pleasure Craft</span></span>
+<span id="cb4-12"><a href="#cb4-12"></a><span class="co">#&gt;   Length  SOG   COG Latitude Longitude</span></span>
+<span id="cb4-13"><a href="#cb4-13"></a><span class="co">#&gt; 1     22  6.9 144.0 53.14665 -128.6124</span></span>
+<span id="cb4-14"><a href="#cb4-14"></a><span class="co">#&gt; 2     38 12.2 318.6 53.56710 -129.6501</span></span>
+<span id="cb4-15"><a href="#cb4-15"></a><span class="co">#&gt; 3     22  0.0 310.3 52.59444 -128.5214</span></span>
+<span id="cb4-16"><a href="#cb4-16"></a><span class="co">#&gt; 4     22  0.0 337.0 52.59446 -128.5213</span></span>
+<span id="cb4-17"><a href="#cb4-17"></a><span class="co">#&gt; 5     22  0.0 307.4 52.59446 -128.5214</span></span>
+<span id="cb4-18"><a href="#cb4-18"></a><span class="co">#&gt; 6     22  0.1 165.2 52.57265 -128.5153</span></span></code></pre></div>
+<p>Now save only certain fields to a new dataframe, modifying column names and in some case changing units:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1"></a>ais &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">id=</span>ais<span class="op">$</span>ID,</span>
+<span id="cb5-2"><a href="#cb5-2"></a>                  <span class="dt">type=</span>ais<span class="op">$</span>Type,</span>
+<span id="cb5-3"><a href="#cb5-3"></a>                  <span class="dt">sog=</span>(ais<span class="op">$</span>SOG<span class="op">*</span><span class="fl">0.5144</span>), </span>
+<span id="cb5-4"><a href="#cb5-4"></a>                  <span class="dt">length=</span>ais<span class="op">$</span>Length, </span>
+<span id="cb5-5"><a href="#cb5-5"></a>                  <span class="dt">year=</span>ais<span class="op">$</span>Year,</span>
+<span id="cb5-6"><a href="#cb5-6"></a>                  <span class="dt">month=</span>ais<span class="op">$</span>month, </span>
+<span id="cb5-7"><a href="#cb5-7"></a>                  <span class="dt">hour=</span><span class="kw">as.numeric</span>(<span class="kw">gsub</span>(<span class="st">&quot;:&quot;</span>,<span class="st">&quot;&quot;</span>,<span class="kw">substr</span>(ais<span class="op">$</span>time,<span class="dv">1</span>,<span class="dv">2</span>))),</span>
+<span id="cb5-8"><a href="#cb5-8"></a>                  <span class="dt">doy=</span><span class="kw">as.numeric</span>(<span class="kw">strftime</span>(ais<span class="op">$</span>Local.Time,<span class="dt">format=</span><span class="st">&quot;%j&quot;</span>)),</span>
+<span id="cb5-9"><a href="#cb5-9"></a>                  <span class="dt">time=</span><span class="kw">as.POSIXct</span>(ais<span class="op">$</span>Local.Time),</span>
+<span id="cb5-10"><a href="#cb5-10"></a>                  <span class="dt">x=</span>ais<span class="op">$</span>Longitude,</span>
+<span id="cb5-11"><a href="#cb5-11"></a>                  <span class="dt">y=</span>ais<span class="op">$</span>Latitude)</span></code></pre></div>
+<p>Now we filter the record so that each vessel is included only once per hour at most.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1"></a>ais<span class="op">$</span>id_hour &lt;-<span class="st"> </span><span class="kw">paste0</span>(ais<span class="op">$</span>id,<span class="st">&#39;-&#39;</span>,ais<span class="op">$</span>hour)</span>
+<span id="cb6-2"><a href="#cb6-2"></a>ais &lt;-<span class="st"> </span>ais[<span class="op">!</span><span class="st"> </span><span class="kw">duplicated</span>(ais<span class="op">$</span>id_hour),]</span>
+<span id="cb6-3"><a href="#cb6-3"></a>ais<span class="op">$</span>id_hour &lt;-<span class="st"> </span><span class="ot">NULL</span></span>
+<span id="cb6-4"><a href="#cb6-4"></a><span class="kw">nrow</span>(ais)</span>
+<span id="cb6-5"><a href="#cb6-5"></a><span class="co">#&gt; [1] 7397</span></span></code></pre></div>
+<p>Optionally, add columns for the elevation of the sun during each record. This would prove useful if you want to conduct ship-strike assessments in a dielly-explicit framework (daytime vs. nighttime risks and impacts).</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1"></a><span class="co"># Add solar elevation data</span></span>
+<span id="cb7-2"><a href="#cb7-2"></a>ais<span class="op">$</span>sol &lt;-<span class="st"> </span>solartime<span class="op">::</span><span class="kw">computeSunPositionDoyHour</span>(<span class="dt">doy=</span>ais<span class="op">$</span>doy,</span>
+<span id="cb7-3"><a href="#cb7-3"></a>                                 <span class="dt">hour=</span>ais<span class="op">$</span>hour,</span>
+<span id="cb7-4"><a href="#cb7-4"></a>                                 <span class="dt">latDeg=</span>ais<span class="op">$</span>y,</span>
+<span id="cb7-5"><a href="#cb7-5"></a>                                 <span class="dt">longDeg=</span>ais<span class="op">$</span>x,</span>
+<span id="cb7-6"><a href="#cb7-6"></a>                                 <span class="dt">timeZone=</span><span class="op">-</span><span class="dv">7</span>)[,<span class="dv">3</span>] <span class="op">*</span><span class="st"> </span>(<span class="dv">180</span><span class="op">/</span>pi)</span></code></pre></div>
+<p>You can then use solar elevation to determine which events occur during day (<code>sol</code> &gt; 0) and which during night (<code>sol</code> &lt; 0). Note that some studies have used civil twilight or other metrics to draw this distinction. Here we are just keeping things simple.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1"></a>ais<span class="op">$</span>night &lt;-<span class="st"> </span><span class="dv">0</span></span>
+<span id="cb8-2"><a href="#cb8-2"></a>ais<span class="op">$</span>night[ais<span class="op">$</span>sol <span class="op">&lt;</span><span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> </span><span class="dv">1</span></span></code></pre></div>
+<p>This is the resulting dataframe that will get passed to subsequent steps:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1"></a><span class="co"># Check out result</span></span>
+<span id="cb9-2"><a href="#cb9-2"></a><span class="kw">head</span>(ais)</span>
+<span id="cb9-3"><a href="#cb9-3"></a><span class="co">#&gt;      id           type     sog length year month hour doy                time</span></span>
+<span id="cb9-4"><a href="#cb9-4"></a><span class="co">#&gt; 1  1303            Tug 3.54936     22 2018     7   12 182 2018-07-01 00:00:00</span></span>
+<span id="cb9-5"><a href="#cb9-5"></a><span class="co">#&gt; 2  2079        Fishing 6.27568     38 2018     7   12 182 2018-07-01 00:00:00</span></span>
+<span id="cb9-6"><a href="#cb9-6"></a><span class="co">#&gt; 3   417        Fishing 0.00000     22 2018     7   12 182 2018-07-01 00:00:00</span></span>
+<span id="cb9-7"><a href="#cb9-7"></a><span class="co">#&gt; 6  1938 Pleasure Craft 0.05144     22 2018     7   12 182 2018-07-01 00:02:00</span></span>
+<span id="cb9-8"><a href="#cb9-8"></a><span class="co">#&gt; 10 2227         Towing 3.60080      0 2018     7   12 182 2018-07-01 00:07:00</span></span>
+<span id="cb9-9"><a href="#cb9-9"></a><span class="co">#&gt; 12  691 Pleasure Craft 0.00000     25 2018     7   12 182 2018-07-01 00:07:00</span></span>
+<span id="cb9-10"><a href="#cb9-10"></a><span class="co">#&gt;            x        y      sol night</span></span>
+<span id="cb9-11"><a href="#cb9-11"></a><span class="co">#&gt; 1  -128.6124 53.14665 54.81014     0</span></span>
+<span id="cb9-12"><a href="#cb9-12"></a><span class="co">#&gt; 2  -129.6501 53.56710 54.08395     0</span></span>
+<span id="cb9-13"><a href="#cb9-13"></a><span class="co">#&gt; 3  -128.5214 52.59444 55.26045     0</span></span>
+<span id="cb9-14"><a href="#cb9-14"></a><span class="co">#&gt; 6  -128.5153 52.57265 55.27920     0</span></span>
+<span id="cb9-15"><a href="#cb9-15"></a><span class="co">#&gt; 10 -129.7395 53.64263 53.99239     0</span></span>
+<span id="cb9-16"><a href="#cb9-16"></a><span class="co">#&gt; 12 -129.5179 53.30706 54.32916     0</span></span></code></pre></div>
+</div>
+</div>
+</div>
+<div id="prepare-parameters-for-simulator" class="section level2">
+<h2>Prepare parameters for simulator</h2>
+<div id="marine-traffic" class="section level3">
+<h3>Marine traffic</h3>
+<p>First, filter the AIS data to the vessel class of interest (column <code>type</code> in the <code>ais</code> data frame). You can supply multiple classes if you wish, or skip this step to keep all classes.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1"></a>traffic &lt;-<span class="st"> </span>ais</span>
+<span id="cb10-2"><a href="#cb10-2"></a></span>
+<span id="cb10-3"><a href="#cb10-3"></a><span class="co"># Define vessel types of interest</span></span>
+<span id="cb10-4"><a href="#cb10-4"></a>type_ops &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;cargo ship&quot;</span>,<span class="st">&quot;tanker&quot;</span>,<span class="st">&quot;passenger ship&quot;</span>) </span>
+<span id="cb10-5"><a href="#cb10-5"></a></span>
+<span id="cb10-6"><a href="#cb10-6"></a><span class="co"># Filter to vessel type</span></span>
+<span id="cb10-7"><a href="#cb10-7"></a>matches &lt;-<span class="st"> </span><span class="kw">which</span>(<span class="kw">tolower</span>(<span class="kw">as.character</span>(ais<span class="op">$</span>type)) <span class="op">%in%</span><span class="st"> </span>type_ops) </span>
+<span id="cb10-8"><a href="#cb10-8"></a>traffic &lt;-<span class="st"> </span>traffic[matches,] </span>
+<span id="cb10-9"><a href="#cb10-9"></a><span class="kw">nrow</span>(traffic)</span>
+<span id="cb10-10"><a href="#cb10-10"></a><span class="co">#&gt; [1] 702</span></span>
+<span id="cb10-11"><a href="#cb10-11"></a>  </span>
+<span id="cb10-12"><a href="#cb10-12"></a><span class="co"># Filter to valid entries</span></span>
+<span id="cb10-13"><a href="#cb10-13"></a>traffic &lt;-<span class="st"> </span>traffic <span class="op">%&gt;%</span><span class="st"> </span>dplyr<span class="op">::</span><span class="kw">filter</span>(length <span class="op">&gt;</span><span class="st"> </span><span class="dv">0</span>,</span>
+<span id="cb10-14"><a href="#cb10-14"></a>                                     sog <span class="op">&gt;</span><span class="st"> </span><span class="dv">0</span>) </span>
+<span id="cb10-15"><a href="#cb10-15"></a></span>
+<span id="cb10-16"><a href="#cb10-16"></a><span class="co"># Filter to study area</span></span>
+<span id="cb10-17"><a href="#cb10-17"></a>traffic &lt;-<span class="st"> </span>traffic <span class="op">%&gt;%</span><span class="st"> </span>dplyr<span class="op">::</span><span class="kw">filter</span>(x <span class="op">&gt;</span><span class="st"> </span><span class="fl">-129.6</span>,</span>
+<span id="cb10-18"><a href="#cb10-18"></a>                                     x <span class="op">&lt;</span><span class="st"> </span><span class="fl">-129.3</span>,</span>
+<span id="cb10-19"><a href="#cb10-19"></a>                                     y <span class="op">&gt;</span><span class="st"> </span><span class="fl">52.8</span>,</span>
+<span id="cb10-20"><a href="#cb10-20"></a>                                     y <span class="op">&lt;</span><span class="st"> </span><span class="fl">53.35</span>)</span>
+<span id="cb10-21"><a href="#cb10-21"></a><span class="kw">nrow</span>(traffic)</span>
+<span id="cb10-22"><a href="#cb10-22"></a><span class="co">#&gt; [1] 29</span></span></code></pre></div>
+<p>Now simplify these data to only the essential parameters and add an approximation of vessel width:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1"></a>params.ship &lt;-<span class="st"> </span>traffic <span class="op">%&gt;%</span><span class="st"> </span></span>
+<span id="cb11-2"><a href="#cb11-2"></a><span class="st">  </span>dplyr<span class="op">::</span><span class="kw">select</span>(<span class="dt">v.ship =</span> sog,</span>
+<span id="cb11-3"><a href="#cb11-3"></a>                <span class="dt">l.ship =</span> length) <span class="op">%&gt;%</span></span>
+<span id="cb11-4"><a href="#cb11-4"></a><span class="st">  </span>dplyr<span class="op">::</span><span class="kw">mutate</span>(<span class="dt">w.ship =</span> <span class="fl">0.25</span><span class="op">*</span>l.ship)</span></code></pre></div>
+<p>Check out the finalized traffic parameter set:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1"></a><span class="kw">head</span>(params.ship)</span>
+<span id="cb12-2"><a href="#cb12-2"></a><span class="co">#&gt;    v.ship l.ship w.ship</span></span>
+<span id="cb12-3"><a href="#cb12-3"></a><span class="co">#&gt; 1 9.20776    301  75.25</span></span>
+<span id="cb12-4"><a href="#cb12-4"></a><span class="co">#&gt; 2 9.61928    238  59.50</span></span>
+<span id="cb12-5"><a href="#cb12-5"></a><span class="co">#&gt; 3 8.23040    285  71.25</span></span>
+<span id="cb12-6"><a href="#cb12-6"></a><span class="co">#&gt; 4 8.23040    285  71.25</span></span>
+<span id="cb12-7"><a href="#cb12-7"></a><span class="co">#&gt; 5 3.90944     20   5.00</span></span>
+<span id="cb12-8"><a href="#cb12-8"></a><span class="co">#&gt; 6 4.16664     20   5.00</span></span></code></pre></div>
+<p>Visualize the distributions of these parameters:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a><span class="kw">par</span>(<span class="dt">mfrow=</span><span class="kw">c</span>(<span class="dv">1</span>,<span class="dv">3</span>))</span>
+<span id="cb13-2"><a href="#cb13-2"></a><span class="kw">par</span>(<span class="dt">mar=</span><span class="kw">c</span>(<span class="dv">4</span>,<span class="dv">4</span>,.<span class="dv">5</span>,.<span class="dv">5</span>))</span>
+<span id="cb13-3"><a href="#cb13-3"></a><span class="kw">hist</span>(params.ship<span class="op">$</span>v.ship,<span class="dt">breaks=</span><span class="dv">20</span>,<span class="dt">main=</span><span class="ot">NULL</span>)</span>
+<span id="cb13-4"><a href="#cb13-4"></a><span class="kw">hist</span>(params.ship<span class="op">$</span>l.ship,<span class="dt">breaks=</span><span class="dv">20</span>,<span class="dt">main=</span><span class="ot">NULL</span>)</span>
+<span id="cb13-5"><a href="#cb13-5"></a><span class="kw">hist</span>(params.ship<span class="op">$</span>w.ship,<span class="dt">breaks=</span><span class="dv">20</span>,<span class="dt">main=</span><span class="ot">NULL</span>)</span></code></pre></div>
+<p><img src="data:image/png;base64,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hg0b5NNPP5W1a9eqPyykVrRoUfn555/lz3/+s6xbt07uueceyZEjx62TbNxKS0uTP/7xj9K0aVNfqe+9956sXr1aybtr1y6pU6eOOmb19e4TwG8jXBsAe0TbY3DFApO4rvALO50zZ46UKlUqqotD+onFTQsJbNq0SSZPnixnz56VChUqqPYFxcWivZkxY4bcuHFDLfYLGey8bnFt4p4xd+5cKVSokE8Gu218+/bt8uGHH8rly5elfPnyki3bf/p0MlofruwB+v777+Wpp56SWrVqyaxZs+T111+HfUQ1IE8YYJMmTWTUqFHy17/+Nar5+2f2zDPPWJb/3//+d3nnnXfk/vvvlwkTJqgG2r/saGxPmTJFJk6cKI0aNZK+ffvK+vXro5GtyuPAgQPSvn17WbhwoS9PXJgoDw7R888/L8uXL/cd48YtAh999JHs379frZSO1dLReFy5ckUeeughKViwoGCFWWzHIqAh7dWrl7JNo3w4FnCAICv+smfPrg7Zcb0bMvj/hmsDVqxYIV999ZVPzqSkJHVav379BE4bHpbatWun+Prnx21nE1i2bJn0799f7r33Xlm1apVqyyBxLNqbLVu2SI8ePeSHH35Q0Oy+bvv06SPfffedNGjQQLp166baEQhip41D965duyoZ8GCB+xhCpupDc2F49tlnNR2I0uzcuXOa3uBEXcvf//73GvJG0Bs8rVWrVlEvAxnqDoqmG5v2i1/8wpL8q1evrh05ckTlfezYMU1/6o96OZ07d9Z0j1zl+/bbb2sjRoyIShmnTp3SqlWrpg0bNkzTb9S+PO+++26fTrpjpHXp0sV3jBu3COiNl6YvHX8rQt+aOXOmpjupvjik2blzp2/fro0HHnhA0xs0Te+V8hWJuuzZs6dv39iw43o3yvL/DdcGvPTSS+q69U97/PhxrWrVqr4opPnggw98+9xwPgG9p0HTe/WUoFevXtX03mxN7wnR7G5v9N4OTe8V1Tp16qR99tlnSh47r1vcL2rUqKHpPfuqbL0XRtu7d69mt43royLaiy++qGTQH6q1X/3qV2o7M/Xhyh6gffv2SZUqVZQ3mD9/fvWLJ8poBjyJGnnrRij169ePZvYqL/RuwJsdOXJk1PNGhujGxPAaysBQwrhx43zcolkgemFGjx4tL7zwguoy7d69e1SyB388CenOZ0B+J06c8A2z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" /><!-- --></p>
+<p>To simulate additional traffic on top of the traffic already present, you can add rows to <code>params.ship</code>. This code emulates the traffic increase expected in 2023 in Gitga’at waters:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1"></a>new_transits &lt;-<span class="st"> </span><span class="dv">750</span></span>
+<span id="cb14-2"><a href="#cb14-2"></a>v.ship &lt;-<span class="st"> </span><span class="kw">rep</span>(<span class="fl">5.144</span>,<span class="dt">times=</span>new_transits)<span class="co"># 10 knots or 0.5144 m/s</span></span>
+<span id="cb14-3"><a href="#cb14-3"></a>l.ship &lt;-<span class="st"> </span><span class="kw">rep</span>(<span class="dv">300</span>,<span class="dt">times=</span>new_transits)</span>
+<span id="cb14-4"><a href="#cb14-4"></a>w.ship &lt;-<span class="st"> </span>l.ship<span class="op">*</span><span class="fl">0.25</span></span>
+<span id="cb14-5"><a href="#cb14-5"></a>projected.traffic &lt;-<span class="st"> </span><span class="kw">data.frame</span>(v.ship,l.ship,w.ship)</span>
+<span id="cb14-6"><a href="#cb14-6"></a></span>
+<span id="cb14-7"><a href="#cb14-7"></a>params.ship &lt;-<span class="st"> </span><span class="kw">rbind</span>(params.ship, projected.traffic)</span></code></pre></div>
+</div>
+<div id="whales" class="section level3">
+<h3>Whales</h3>
+<p>The parameters that characterize a whale in the encounter simulator can be defined as either a single value (e.g., 20 meters), or as a distribution of values from which to draw random values. In this example, we will do the latter.</p>
+<p>Define the size of the distributions you will use:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1"></a>n &lt;-<span class="st"> </span><span class="dv">1000</span></span></code></pre></div>
+<p>These distributions will be truncated-normal distributions, to ensure that no value is unrealistically small or large.</p>
+<div id="whale-velocity" class="section level4">
+<h4>Whale velocity</h4>
+<p>Velocity should be provided as meters per second. We draw values from the acoustic tracks of fin whales from the same study area in Hendricks et al. (2021).</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1"></a>v.whale =<span class="st"> </span>truncnorm<span class="op">::</span><span class="kw">rtruncnorm</span>(n,</span>
+<span id="cb16-2"><a href="#cb16-2"></a>                                <span class="dt">a=</span><span class="dv">0</span>,</span>
+<span id="cb16-3"><a href="#cb16-3"></a>                                <span class="dt">b=</span><span class="fl">2.63</span>,</span>
+<span id="cb16-4"><a href="#cb16-4"></a>                                <span class="dt">mean=</span><span class="fl">1.3611</span>,</span>
+<span id="cb16-5"><a href="#cb16-5"></a>                                <span class="dt">sd=</span>.<span class="dv">5</span>) </span></code></pre></div>
+</div>
+<div id="whale-directivity" class="section level4">
+<h4>Whale directivity</h4>
+<p>Whale directivity, which we define in our paper as the standard deviation of change in course heading from one minute to the next, is also drawn from Hendricks et al. (2021).</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1"></a>delta.sd =<span class="st"> </span>truncnorm<span class="op">::</span><span class="kw">rtruncnorm</span>(n,<span class="dv">0</span>,<span class="dv">90</span>,<span class="dv">30</span>,<span class="dv">10</span>)</span></code></pre></div>
+</div>
+<div id="whale-dimensions" class="section level4">
+<h4>Whale dimensions</h4>
+<p>Whale length is drawn from UAV-based photogrammetry measurements for fin whales in our study area, published in Keen et al. (2021).</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a>l.whale =<span class="st"> </span>truncnorm<span class="op">::</span><span class="kw">rtruncnorm</span>(n,<span class="dv">0</span>,<span class="dv">40</span>,<span class="fl">18.60375</span>,<span class="fl">1.649138</span>) </span></code></pre></div>
+<p>To estimate whale widths, we use the ratio of fluke width to body length from Keen et al. (2021).</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1"></a>w.whale =<span class="st"> </span><span class="fl">.2074</span><span class="op">*</span>l.whale </span></code></pre></div>
+</div>
+</div>
+</div>
+<div id="run-simulator" class="section level2">
+<h2>Run simulator</h2>
+<p>We are now ready to run our encounter rate simulation.</p>
+<p>Define the filename of the <code>R</code> data object that will store your results.</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1"></a>results_filename &lt;-<span class="st"> &#39;demo_results.rds&#39;</span></span></code></pre></div>
+<p>Define the number of iterations you want. We suggest no fewer than 100.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1"></a>iterations &lt;-<span class="st"> </span><span class="dv">100</span></span></code></pre></div>
+<p>Stage empty objects into which results will be placed during each iteration.</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1"></a>df &lt;-<span class="st"> </span><span class="kw">data.frame</span>() <span class="co"># details</span></span>
+<span id="cb22-2"><a href="#cb22-2"></a>mrs &lt;-<span class="st"> </span><span class="kw">c</span>() <span class="co"># simple tally of imminent encounters</span></span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1"></a><span class="cf">for</span>(b <span class="cf">in</span> <span class="dv">1</span><span class="op">:</span>iterations){</span>
+<span id="cb23-2"><a href="#cb23-2"></a>  </span>
+<span id="cb23-3"><a href="#cb23-3"></a>  <span class="co"># Run simulator</span></span>
+<span id="cb23-4"><a href="#cb23-4"></a>  mr &lt;-<span class="st"> </span><span class="kw">encounter_simulator</span>(<span class="dt">params.ship=</span>params.ship,</span>
+<span id="cb23-5"><a href="#cb23-5"></a>                            <span class="dt">v.whale=</span>v.whale,</span>
+<span id="cb23-6"><a href="#cb23-6"></a>                            <span class="dt">l.whale=</span>l.whale,</span>
+<span id="cb23-7"><a href="#cb23-7"></a>                            <span class="dt">w.whale=</span>w.whale,</span>
+<span id="cb23-8"><a href="#cb23-8"></a>                            <span class="dt">delta.sd=</span>delta.sd,</span>
+<span id="cb23-9"><a href="#cb23-9"></a>                            <span class="dt">B=</span><span class="dv">100</span>,</span>
+<span id="cb23-10"><a href="#cb23-10"></a>                            <span class="dt">toplot=</span><span class="ot">FALSE</span>)</span>
+<span id="cb23-11"><a href="#cb23-11"></a>  </span>
+<span id="cb23-12"><a href="#cb23-12"></a>  <span class="co"># Store detailed results from each run within the simulation</span></span>
+<span id="cb23-13"><a href="#cb23-13"></a>  df &lt;-<span class="st"> </span><span class="kw">rbind</span>(df, mr)</span>
+<span id="cb23-14"><a href="#cb23-14"></a>  </span>
+<span id="cb23-15"><a href="#cb23-15"></a>  <span class="co"># Note number of imminent encounters that occurred in this iteration</span></span>
+<span id="cb23-16"><a href="#cb23-16"></a>  ieb &lt;-<span class="st"> </span><span class="kw">length</span>(<span class="kw">which</span>(mr<span class="op">$</span>proximity_m <span class="op">&lt;=</span><span class="st"> </span><span class="dv">0</span>)) </span>
+<span id="cb23-17"><a href="#cb23-17"></a>  mrs &lt;-<span class="st"> </span><span class="kw">c</span>(mrs,ieb)</span>
+<span id="cb23-18"><a href="#cb23-18"></a>  </span>
+<span id="cb23-19"><a href="#cb23-19"></a>  <span class="co"># Save results to RDS in each iteration to ensure work is never lost</span></span>
+<span id="cb23-20"><a href="#cb23-20"></a>  <span class="kw">getwd</span>()</span>
+<span id="cb23-21"><a href="#cb23-21"></a>  <span class="kw">saveRDS</span>(<span class="kw">list</span>(<span class="dt">encounters=</span>mrs,</span>
+<span id="cb23-22"><a href="#cb23-22"></a>               <span class="dt">proximities=</span>df),</span>
+<span id="cb23-23"><a href="#cb23-23"></a>          <span class="dt">file=</span>results_filename)</span>
+<span id="cb23-24"><a href="#cb23-24"></a>  </span>
+<span id="cb23-25"><a href="#cb23-25"></a>  <span class="co"># Print status report</span></span>
+<span id="cb23-26"><a href="#cb23-26"></a>  <span class="kw">print</span>(<span class="kw">paste0</span>(<span class="kw">Sys.time</span>(),<span class="st">&quot; | Run &quot;</span>,b,<span class="st">&quot; | &quot;</span>,ieb,<span class="st">&quot; imminent encounter(s) ...&quot;</span>))</span>
+<span id="cb23-27"><a href="#cb23-27"></a>  </span>
+<span id="cb23-28"><a href="#cb23-28"></a>}</span></code></pre></div>
+</div>
+<div id="visualize-results" class="section level2">
+<h2>Visualize results</h2>
+<p>Read in your results object, if you need to:</p>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1"></a>mrs &lt;-<span class="st"> </span><span class="kw">readRDS</span>(results_filename)</span></code></pre></div>
+<p>Determine mean expected encounter rate:</p>
+<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1"></a>encounters &lt;-<span class="st"> </span><span class="kw">which</span>(df<span class="op">$</span>proximity_m <span class="op">==</span><span class="st"> </span><span class="dv">0</span>)</span>
+<span id="cb25-2"><a href="#cb25-2"></a>encounter_rate &lt;-<span class="st"> </span><span class="kw">length</span>(encounters) <span class="op">/</span><span class="st"> </span><span class="kw">nrow</span>(df)</span>
+<span id="cb25-3"><a href="#cb25-3"></a>encounter_rate</span></code></pre></div>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1"></a><span class="kw">par</span>(<span class="dt">mfrow=</span><span class="kw">c</span>(<span class="dv">2</span>,<span class="dv">2</span>))</span>
+<span id="cb26-2"><a href="#cb26-2"></a><span class="kw">par</span>(<span class="dt">mar=</span><span class="kw">c</span>(<span class="fl">4.2</span>,<span class="fl">4.2</span>,<span class="dv">1</span>,<span class="dv">1</span>))</span>
+<span id="cb26-3"><a href="#cb26-3"></a><span class="kw">hist</span>(mrs, <span class="dt">main=</span><span class="st">&#39;Imminent encounter rates&#39;</span>) </span>
+<span id="cb26-4"><a href="#cb26-4"></a></span>
+<span id="cb26-5"><a href="#cb26-5"></a><span class="kw">hist</span>(df<span class="op">$</span>proximity_m,</span>
+<span id="cb26-6"><a href="#cb26-6"></a>     <span class="dt">breaks=</span><span class="kw">seq</span>(<span class="dv">0</span>,(<span class="fl">1.1</span><span class="op">*</span><span class="kw">max</span>(df<span class="op">$</span>proximity_m)),<span class="dt">length=</span><span class="dv">30</span>),</span>
+<span id="cb26-7"><a href="#cb26-7"></a>     <span class="dt">main=</span><span class="st">&quot;Nearest proximity during each co-occurrence&quot;</span>)</span>
+<span id="cb26-8"><a href="#cb26-8"></a></span>
+<span id="cb26-9"><a href="#cb26-9"></a><span class="kw">hist</span>(df<span class="op">$</span>whale_hdg,</span>
+<span id="cb26-10"><a href="#cb26-10"></a>     <span class="dt">breaks=</span><span class="kw">seq</span>(<span class="dv">0</span>,(<span class="fl">1.1</span><span class="op">*</span><span class="kw">max</span>(df<span class="op">$</span>whale_hdg)),<span class="dt">length=</span><span class="dv">30</span>),</span>
+<span id="cb26-11"><a href="#cb26-11"></a>     <span class="dt">main=</span><span class="st">&quot;Whale heading at nearest proximity&quot;</span>)</span>
+<span id="cb26-12"><a href="#cb26-12"></a></span>
+<span id="cb26-13"><a href="#cb26-13"></a><span class="kw">hist</span>(df<span class="op">$</span>ship_hdg,</span>
+<span id="cb26-14"><a href="#cb26-14"></a>     <span class="dt">breaks=</span><span class="kw">seq</span>(<span class="dv">0</span>,(<span class="fl">1.1</span><span class="op">*</span><span class="kw">max</span>(df<span class="op">$</span>ship_hdg)),<span class="dt">length=</span><span class="dv">30</span>),</span>
+<span id="cb26-15"><a href="#cb26-15"></a>     <span class="dt">main=</span><span class="st">&quot;Vessel heading at nearest proximity&quot;</span>)</span>
+<span id="cb26-16"><a href="#cb26-16"></a></span>
+<span id="cb26-17"><a href="#cb26-17"></a><span class="kw">hist</span>(df<span class="op">$</span>speed_ratio,</span>
+<span id="cb26-18"><a href="#cb26-18"></a>     <span class="dt">breaks=</span><span class="kw">seq</span>(<span class="dv">0</span>,(<span class="fl">1.1</span><span class="op">*</span><span class="kw">max</span>(df<span class="op">$</span>whale_sog)),<span class="dt">length=</span><span class="dv">30</span>),</span>
+<span id="cb26-19"><a href="#cb26-19"></a>     <span class="dt">main=</span><span class="st">&quot;Vessel:whale speed ratio at nearest proximity&quot;</span>)</span></code></pre></div>
+</div>
+<div id="comparing-results-across-vessel-types-or-years" class="section level2">
+<h2>Comparing results across vessel types or years</h2>
+</div>
+<div id="conducting-a-sensitivity-analysis" class="section level2">
+<h2>Conducting a sensitivity analysis</h2>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

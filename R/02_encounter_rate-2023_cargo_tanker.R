@@ -74,6 +74,8 @@ for(b in 1:iterations){
 #########################################################
 # Visualize & store result
 
+mrs <- readRDS(results_filename)
+
 mrs
 par(mar=c(4.2,4.2,1,1)) ; hist(mrs, main='Imminent encounter rates') 
 par(mar=c(4.2,4.2,1,1)) ; hist(df$proximity_m,breaks=seq(0,(1.1*max(df$proximity_m)),length=30))

@@ -7,7 +7,7 @@
 # Base analysis
 
 # Set working directory to folder that this R file is in
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+#setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 #########################################################
 #########################################################

@@ -1,0 +1,338 @@
+---
+title: "Encounter rate simulator"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{demo}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+#setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+```
+
+This vignette describes our analysis in a step-by-step guide.  
+
+## Setup
+
+**1.Setup this directory** on your local computer by either cloning this repo via `git` or downloading it as a zipped folder.  
+
+**2. Start a new script** in `RStudio` and save it within this directory's `R` folder.  
+
+**3. Load libraries** at the top of your script. Install the packages you don't yet have.  
+
+```{r,message=FALSE}
+library(rstudioapi)
+library(dplyr)
+library(truncnorm)
+library(solartime)
+library(boot)
+```
+
+**4. Source functions** at the top of your script. 
+
+```{r}
+source("function-ais.R")
+source("function-simulator.R")
+source("function-impacts.R")
+```
+
+## Marine traffic data
+
+### Formatting AIS 
+
+Subsequent steps will require AIS data that meet the following criteria: 
+
+- Each row contains details for a single vessel.
+- There is a column named `id`, containing a unique identifier for each vessel (e.g., MMSI).  
+- There is a column named `type`, containing the category or class of vessel.  
+- There is a column named `sog`, containing speed-over-ground in meters per second.  
+- There is a column named `length`, containing vessel length in meters.  
+- There are columns named `year` (e.g., 2018), `month` (e.g., 7 for July), and `doy` for day-of-year (e.g., 182 for July 1st).  
+- There is a column named `hour` for the local hour of day in which this record occurred.  
+- There are columns named `x` and `y` for longitude and latitude, respectively, in decimal degrees.  
+- Records for each unique vessel are filtered to only one per hour. This is to ensure that frequently-reporting vessels are not overrepresented but that vessels that occur often or linger in the area are not underrepresented.  
+
+#### Example script
+
+Here is the code we used to format the raw AIS data provided to us by the Canadian Coast Guard. You may use this dataset to familiarize yourself with the simulator.  
+
+First, read in the raw data:  
+
+```{r,echo=TRUE,eval=TRUE, collapse=TRUE}
+ais <- read.csv("../data/ais/ais-2018.csv")
+```
+
+Check out the AIS data in its raw form:  
+
+```{r,echo=TRUE,eval=TRUE, collapse=TRUE}
+nrow(ais)
+
+head(ais)
+```
+
+Now save only certain fields to a new dataframe, modifying column names and in some case changing units: 
+
+```{r,echo=TRUE,eval=TRUE, collapse=TRUE}
+ais <- data.frame(id=ais$ID,
+                  type=ais$Type,
+                  sog=(ais$SOG*0.5144), 
+                  length=ais$Length, 
+                  year=ais$Year,
+                  month=ais$month, 
+                  hour=as.numeric(gsub(":","",substr(ais$time,1,2))),
+                  doy=as.numeric(strftime(ais$Local.Time,format="%j")),
+                  time=as.POSIXct(ais$Local.Time),
+                  x=ais$Longitude,
+                  y=ais$Latitude)
+```
+
+Now we filter the record so that each vessel is included only once per hour at most. 
+
+```{r,echo=TRUE,eval=TRUE, collapse=TRUE}
+ais$id_hour <- paste0(ais$id,'-',ais$hour)
+ais <- ais[! duplicated(ais$id_hour),]
+ais$id_hour <- NULL
+nrow(ais)
+```
+
+Optionally, add columns for the elevation of the sun during each record.  This would prove useful if you want to conduct ship-strike assessments in a dielly-explicit framework (daytime vs. nighttime risks and impacts).  
+
+```{r,echo=TRUE,eval=TRUE, collapse=TRUE}
+# Add solar elevation data
+ais$sol <- solartime::computeSunPositionDoyHour(doy=ais$doy,
+                                 hour=ais$hour,
+                                 latDeg=ais$y,
+                                 longDeg=ais$x,
+                                 timeZone=-7)[,3] * (180/pi)
+```
+
+You can then use solar elevation to determine which events occur during day (`sol` > 0) and which during night (`sol` < 0). Note that some studies have used civil twilight or other metrics to draw this distinction.  Here we are just keeping things simple.  
+
+```{r,echo=TRUE,eval=TRUE, collapse=TRUE}
+ais$night <- 0
+ais$night[ais$sol < 0] <- 1
+```
+
+This is the resulting dataframe that will get passed to subsequent steps:  
+
+```{r,echo=TRUE,eval=TRUE, collapse=TRUE}
+# Check out result
+head(ais)
+```
+
+## Prepare parameters for simulator
+
+### Marine traffic
+
+First, filter the AIS data to the vessel class of interest (column `type` in the `ais` data frame). You can supply multiple classes if you wish, or skip this step to keep all classes.  
+
+```{r}
+traffic <- ais
+
+# Define vessel types of interest
+type_ops <- c("cargo ship","tanker","passenger ship") 
+
+# Filter to vessel type
+matches <- which(tolower(as.character(ais$type)) %in% type_ops) 
+traffic <- traffic[matches,] 
+nrow(traffic)
+  
+# Filter to valid entries
+traffic <- traffic %>% dplyr::filter(length > 0,
+                                     sog > 0) 
+
+# Filter to study area
+traffic <- traffic %>% dplyr::filter(x > -129.6,
+                                     x < -129.3,
+                                     y > 52.8,
+                                     y < 53.35)
+nrow(traffic)
+```
+
+Now simplify these data to only the essential parameters and add an approximation of vessel width:  
+
+```{r}
+params.ship <- traffic %>% 
+  dplyr::select(v.ship = sog,
+                l.ship = length) %>%
+  dplyr::mutate(w.ship = 0.25*l.ship)
+```
+
+Check out the finalized traffic parameter set: 
+
+```{r}
+head(params.ship)
+```
+
+Visualize the distributions of these parameters:  
+
+```{r,fig.width=6}
+par(mfrow=c(1,3))
+par(mar=c(4,4,.5,.5))
+hist(params.ship$v.ship,breaks=20,main=NULL)
+hist(params.ship$l.ship,breaks=20,main=NULL)
+hist(params.ship$w.ship,breaks=20,main=NULL)
+```
+
+To simulate additional traffic on top of the traffic already present, you can add rows to `params.ship`. This code emulates the traffic increase expected in 2023 in Gitga'at waters:  
+
+```{r}
+new_transits <- 750
+v.ship <- rep(5.144,times=new_transits)# 10 knots or 0.5144 m/s
+l.ship <- rep(300,times=new_transits)
+w.ship <- l.ship*0.25
+projected.traffic <- data.frame(v.ship,l.ship,w.ship)
+
+params.ship <- rbind(params.ship, projected.traffic)
+```
+
+### Whales  
+
+The parameters that characterize a whale in the encounter simulator can be defined as either a single value (e.g., 20 meters), or as a distribution of values from which to draw random values.  In this example, we will do the latter. 
+
+Define the size of the distributions you will use: 
+
+```{r}
+n <- 1000
+```
+
+These distributions will be truncated-normal distributions, to ensure that no value is unrealistically small or large.  
+
+#### Whale velocity
+
+Velocity should be provided as meters per second. We draw values from the acoustic tracks of fin whales from the same study area in Hendricks et al. (2021).  
+
+```{r}
+v.whale = truncnorm::rtruncnorm(n,
+                                a=0,
+                                b=2.63,
+                                mean=1.3611,
+                                sd=.5) 
+```
+
+#### Whale directivity
+
+Whale directivity, which we define in our paper as the standard deviation of change in course heading from one minute to the next, is also drawn from Hendricks et al. (2021).   
+
+```{r}
+delta.sd = truncnorm::rtruncnorm(n,0,90,30,10)
+```
+
+#### Whale dimensions
+
+Whale length is drawn from UAV-based photogrammetry measurements for fin whales in our study area, published in Keen et al. (2021).  
+
+```{r}
+l.whale = truncnorm::rtruncnorm(n,0,40,18.60375,1.649138) 
+```
+
+To estimate whale widths, we use the ratio of fluke width to body length from Keen et al. (2021). 
+
+```{r}
+w.whale = .2074*l.whale 
+```
+
+## Run simulator
+
+We are now ready to run our encounter rate simulation. 
+
+Define the filename of the `R` data object that will store your results. 
+
+```{r}
+results_filename <- 'demo_results.rds'
+```
+
+Define the number of iterations you want. We suggest no fewer than 100.  
+
+```{r}
+iterations <- 100
+```
+
+Stage empty objects into which results will be placed during each iteration.  
+
+```{r}
+df <- data.frame() # details
+mrs <- c() # simple tally of imminent encounters
+```
+
+```{r,eval=FALSE}
+for(b in 1:iterations){
+  
+  # Run simulator
+  mr <- encounter_simulator(params.ship=params.ship,
+                            v.whale=v.whale,
+                            l.whale=l.whale,
+                            w.whale=w.whale,
+                            delta.sd=delta.sd,
+                            B=100,
+                            toplot=FALSE)
+  
+  # Store detailed results from each run within the simulation
+  df <- rbind(df, mr)
+  
+  # Note number of imminent encounters that occurred in this iteration
+  ieb <- length(which(mr$proximity_m <= 0)) 
+  mrs <- c(mrs,ieb)
+  
+  # Save results to RDS in each iteration to ensure work is never lost
+  getwd()
+  saveRDS(list(encounters=mrs,
+               proximities=df),
+          file=results_filename)
+  
+  # Print status report
+  print(paste0(Sys.time()," | Run ",b," | ",ieb," imminent encounter(s) ..."))
+  
+}
+```
+
+## Visualize results
+
+Read in your results object, if you need to:  
+
+```{r,eval=FALSE}
+mrs <- readRDS(results_filename)
+```
+
+Determine mean expected encounter rate: 
+
+```{r,eval=FALSE}
+encounters <- which(df$proximity_m == 0)
+encounter_rate <- length(encounters) / nrow(df)
+encounter_rate
+```
+
+```{r,eval=FALSE}
+par(mfrow=c(2,2))
+par(mar=c(4.2,4.2,1,1))
+hist(mrs, main='Imminent encounter rates') 
+
+hist(df$proximity_m,
+     breaks=seq(0,(1.1*max(df$proximity_m)),length=30),
+     main="Nearest proximity during each co-occurrence")
+
+hist(df$whale_hdg,
+     breaks=seq(0,(1.1*max(df$whale_hdg)),length=30),
+     main="Whale heading at nearest proximity")
+
+hist(df$ship_hdg,
+     breaks=seq(0,(1.1*max(df$ship_hdg)),length=30),
+     main="Vessel heading at nearest proximity")
+
+hist(df$speed_ratio,
+     breaks=seq(0,(1.1*max(df$whale_sog)),length=30),
+     main="Vessel:whale speed ratio at nearest proximity")
+```
+
+## Comparing results across vessel types or years
+
+
+## Conducting a sensitivity analysis
+
+
