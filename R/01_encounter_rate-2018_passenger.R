@@ -23,7 +23,7 @@ head(ais)
 #########################################################
 # PARAMETERS & USER INPUTS 
 
-results_filename <- '../results/emp/2018-passenger.rds'
+results_filename <- '../results/emp/2018-passenger-test.rds'
 iterations <- 1000
 
 # Traffic 
@@ -44,27 +44,58 @@ w.whale = .2074*l.whale # meters # based on fluke / body length ratio in Keen et
 #########################################################
 # ENCOUNTER RATE SIMULATOR
 
-df <- data.frame() # details
-mrs <- c() # imminent encounters
+encounter_tally <- c() # simple tally of imminent encounters
+summaries <- data.frame() # summaries of each iteration
+records <- list() # list of detailed info for each imminent encounter
+
+# Setup a multi-pane plot to watch results
+par(mfrow=c(3,3))
+
+# Loop through iterations  
 for(b in 1:iterations){
-  mr <- encounter_simulator(params.ship=params.ship,
-                            v.whale=v.whale,
-                            l.whale=l.whale,
-                            w.whale=w.whale,
-                            delta.sd=delta.sd,
-                            B=100,
-                            toplot=FALSE)
-  mr
-  df <- rbind(df, mr)
-  ieb <- length(which(mr$proximity_m <= 0)) # store N imminent encounters for this b
-  mrs <- c(mrs,ieb) # store N imminent encounters
   
-  # Save to RDS
-  getwd()
-  saveRDS(list(encounters=mrs,
-               proximities=df),
+  # Run simulator
+  sim_b <- encounter_simulator(params.ship=params.ship,
+                               v.whale=v.whale,
+                               l.whale=l.whale,
+                               w.whale=w.whale,
+                               delta.sd=delta.sd,
+                               B=100,
+                               toplot=FALSE)
+  
+  # Summary of each iteration
+  summary_b <- sim_b$summary
+  summary_b$iteration <- b
+  summary_b
+  
+  # Add to summary df for all iterations
+  summaries <- rbind(summaries, summary_b)
+  
+  # Note number of imminent encounters that occurred in this iteration
+  encounters <- which(summary_b$encounter==1)
+  tot_encounters <- length(encounters) 
+  encounter_tally <- c(encounter_tally,tot_encounters)
+  
+  # Details for each iteration
+  records_b <- sim_b$records
+  
+  # Get records for runs that results in an encounter
+  if(tot_encounters > 0){
+    encounter_records <- records_b[encounters]
+    length(encounter_records)
+    records <- c(records, encounter_records)
+  }
+  
+  # Save results to RDS in each iteration to ensure work is never lost
+  results_list <- list(encounter_tally,
+                       summaries,
+                       records)
+  saveRDS(results_list,
           file=results_filename)
-  print(paste0(Sys.time()," | Run ",b," | ",ieb," imminent encounter(s) ..."))
+  
+  # Print status report
+  print(paste0(Sys.time()," | Run ",b," | ",tot_encounters," imminent encounter(s) ..."))
+  
 }
 
 #########################################################

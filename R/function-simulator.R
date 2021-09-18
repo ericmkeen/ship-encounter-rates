@@ -190,6 +190,7 @@ ship.polys <- function(course,tl,l,w,toplot=TRUE){
   return(ships)
 }
 
+#tship <- ship.polys(course,tl,l,w)
 
 #########################################################
 #########################################################
@@ -338,6 +339,8 @@ whale.polys <- function(trax,l,w,toplot=TRUE){
   return(whales)
 }
 
+#twhale <- whale.polys(trax,l,w)
+
 #########################################################
 #########################################################
 # Determine overlap of polygons
@@ -369,7 +372,8 @@ encounter.test <- function(tship,twhale,polys=FALSE){
   library(sf)
 
   i=1
-  results <- rep(FALSE,times=length(commont))
+  proximities <- c()
+  whale_route <- ship_route <- data.frame()
   for(i in 1:length(commont)){
     ti <- commont[i]
 
@@ -383,20 +387,37 @@ encounter.test <- function(tship,twhale,polys=FALSE){
     c1 = cbind(wi$x, wi$y)
     r1 = rbind(c1, c1[1, ])  # join
     wip <- st_polygon(list(r1))
-
+    
     # Overlap test
     min_dist <- st_distance(sip,wip)
-
-    results[i] <- min_dist
+    proximities[i] <- min_dist
+    
+    sri <- data.frame(si) %>% 
+      dplyr::summarize(x=mean(x),y=mean(y)) %>%
+      dplyr::mutate(t=ti,proximity=min_dist)
+    ship_route <- rbind(ship_route,sri)
+    
+    wri <- data.frame(wi) %>% 
+      dplyr::summarize(x=mean(x),y=mean(y)) %>%
+      dplyr::mutate(t=ti,proximity=min_dist)
+    whale_route <- rbind(whale_route,wri)
   }
-  results
-  length(results)
+  
+  proximities
+  length(proximities)
   length(commont)
-  mini <- which.min(results) ; mini
+  mini <- which.min(proximities) ; mini
+  
+  # Proximity time series  =====================================================
+  proximity_timeseries <- proximities
 
-  # Proximity ==================================================================
-  closest_distance <- results[mini] ; closest_distance
+  # Closest proximity ==========================================================
+  closest_distance <- proximities[mini] ; closest_distance
 
+  # Positions at closest proximity  ============================================
+  ship_at_closest <- tship[[mini]]$xy ; ship_at_closest
+  whale_at_closest <- twhale[[mini]]$xy ; whale_at_closest
+  
   # Whale heading & speed at closest proximity =================================
 
   if(mini==length(twhale)){
@@ -454,15 +475,47 @@ encounter.test <- function(tship,twhale,polys=FALSE){
   if(dx  < 0){theta <- 360 - theta}
   stheta <- theta
 
-  dfi <- data.frame(proximity_m=closest_distance,
+  # Compile summary dataframe ==================================================
+  dfi <- data.frame(encounter= ifelse(closest_distance==0,1,0),
+                    proximity_m=closest_distance,
                     whale_ms=wms,
                     whale_hdg=wtheta,
                     ship_ms=sms,
                     ship_hdg=stheta)
   dfi
-  #res <- min(results) ; res
-  #res <- any(results) ; res
-  return(dfi)
+  
+  # Compile proximity object ===================================================
+  prox <- list()
+  prox$summary <- dfi
+  prox$ship_track <- ship_route
+  prox$whale_track <- whale_route
+  prox$proximity_timeseries <- proximity_timeseries
+  prox$time_at_closest <- mini
+  prox$ship_at_closest <- ship_at_closest
+  prox$whale_at_closest <- whale_at_closest
+  prox$ship_polys <- tship
+  prox$whale_polys <- twhale
+  
+  
+  if(FALSE){
+    par(mfrow=c(2,1))
+    par(mar=c(4.2,4.2,.5,.5))
+    plot(prox$proximity_timeseries,type='l',xlab='Timestamp', ylab='Proximity (m)')
+    abline(v=prox$time_at_closest,col='red',lty=3)
+      
+    make.arena()
+    lines(x=prox$ship_track$x,
+          y=prox$ship_track$y,
+          col='red')
+    lines(x=prox$whale_track$x,
+          y=prox$whale_track$y,
+          col='blue')
+    
+    points(x=ship_0$x, y=ship_0$y,type='l',col='firebrick')
+    points(x=whale_0$x, y=whale_0$y,type='l',col='darkblue',lwd=2)
+  }
+  
+  return(prox)
 }
 
 
@@ -473,21 +526,25 @@ encounter.test <- function(tship,twhale,polys=FALSE){
 
 if(FALSE){
   # Parameters
-  v.ship = 5 # dist
-  l.ship = 220 # dist
-  w.ship = 50 # dist
+  v.ship = 5 # m/s
+  l.ship = 220 # meters
+  w.ship = 50 # meters
   params.ship <- data.frame(v.ship,l.ship,w.ship)
-  v.whale = 1.5 # dist
-  l.whale = 25 # dist
-  w.whale = .2074 # dist
-  delta.sd = 50 # dist
+  v.whale = 1.5 # m/s
+  l.whale = 25 # meters
+  w.whale = .2074 # meters
+  delta.sd = 50 # degr
   toplot=TRUE
+  B <- 10
+  keep.records <- 'encounters'
 }
 
 encounter_simulator <- function(params.ship,
                                 v.whale,l.whale,
                                 w.whale,
-                                delta.sd,B=100,toplot=TRUE){
+                                delta.sd,
+                                B=100,
+                                toplot=TRUE){
   # Setup
   coords <- make.arena()
   whalestarts <- get.starts(coords)
@@ -495,6 +552,7 @@ encounter_simulator <- function(params.ship,
   # Process
   b <- 1
   MR <- data.frame()
+  records <- list()
   hits <- list()
   for(b in 1:B){
     coords <- make.arena()
@@ -531,13 +589,56 @@ encounter_simulator <- function(params.ship,
                           toplot=toplot)
 
     # Was there an imminent encounter?
-    encounter <- encounter.test(tship,twhale) ; encounter
-    MR <- rbind(MR,encounter)
-    #imminent <- encounter <= 0
+    encounter <- encounter.test(tship,twhale) 
+    names(encounter)
+    
+    # Store run b
+    encounter$summary$run <- b
+    encounter$summary
+    
+    # Store summary
+    MR <- rbind(MR,encounter$summary)
+    
+    # Store record
+    records[[b]] <- encounter
   }
 
-  MR
-  return(MR)
+  result_list <- list(summary=MR,
+                      records=records)
+  return(result_list)
 }
 
 
+#########################################################
+#########################################################
+# Encounter analyst
+
+# Takes a prox object
+
+encounter_analyst <- function(prox){
+  tship <- prox$ship_polys
+  twhale <- prox$whale_polys
+  
+  par(mfrow=c(1,2))
+  
+  # Situation
+  #make.arena()
+  par(mar=c(.5,.5,3,.5))
+  plot(1,type='n',xlim=c(-600,600),ylim=c(-600,600),axes=FALSE,ann=FALSE)
+  title(main='Overview')
+  lines(x=prox$ship_track$x,
+        y=prox$ship_track$y,
+        col='red')
+  lines(x=prox$whale_track$x,
+        y=prox$whale_track$y,
+        col='blue')
+  points(x=prox$ship_at_closest$x, y=prox$ship_at_closest$y,type='l',col='firebrick')
+  points(x=prox$whale_at_closest$x, y=prox$whale_at_closest$y,type='l',col='darkblue',lwd=2)
+  
+  par(mar=c(4.2,4.2,3,.5))
+  plot(prox$proximity_timeseries,ylim=c(0,1200),
+       type='l',xlab='Timestamp', ylab='Proximity (m)',main='Proximity timeseries')
+  abline(v=prox$time_at_closest,col='red',lty=3)
+  
+  par(mfrow=c(1,1))
+}

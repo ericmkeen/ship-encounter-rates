@@ -32,6 +32,9 @@ library(dplyr)
 library(truncnorm)
 library(solartime)
 library(boot)
+library(sf)
+library(matlib)
+library(manipulateWidget)
 ```
 
 **4. Source functions** at the top of your script. 
@@ -104,7 +107,6 @@ nrow(ais)
 Optionally, add columns for the elevation of the sun during each record.  This would prove useful if you want to conduct ship-strike assessments in a dielly-explicit framework (daytime vs. nighttime risks and impacts).  
 
 ```{r,echo=TRUE,eval=TRUE, collapse=TRUE}
-# Add solar elevation data
 ais$sol <- solartime::computeSunPositionDoyHour(doy=ais$doy,
                                  hour=ais$hour,
                                  latDeg=ais$y,
@@ -136,7 +138,8 @@ First, filter the AIS data to the vessel class of interest (column `type` in the
 traffic <- ais
 
 # Define vessel types of interest
-type_ops <- c("cargo ship","tanker","passenger ship") 
+# type_ops <- c("cargo ship","tanker","passenger ship") 
+type_ops <- c("cargo ship","tanker") 
 
 # Filter to vessel type
 matches <- which(tolower(as.character(ais$type)) %in% type_ops) 
@@ -144,8 +147,8 @@ traffic <- traffic[matches,]
 nrow(traffic)
   
 # Filter to valid entries
-traffic <- traffic %>% dplyr::filter(length > 0,
-                                     sog > 0) 
+traffic <- traffic %>% dplyr::filter(length > 5,
+                                     sog > 1) 
 
 # Filter to study area
 traffic <- traffic %>% dplyr::filter(x > -129.6,
@@ -161,7 +164,8 @@ Now simplify these data to only the essential parameters and add an approximatio
 params.ship <- traffic %>% 
   dplyr::select(v.ship = sog,
                 l.ship = length) %>%
-  dplyr::mutate(w.ship = 0.25*l.ship)
+  dplyr::mutate(w.ship = 0.25*l.ship) %>%
+  dplyr::filter(v.ship > 2)
 ```
 
 Check out the finalized traffic parameter set: 
@@ -183,13 +187,13 @@ hist(params.ship$w.ship,breaks=20,main=NULL)
 To simulate additional traffic on top of the traffic already present, you can add rows to `params.ship`. This code emulates the traffic increase expected in 2023 in Gitga'at waters:  
 
 ```{r}
-new_transits <- 750
-v.ship <- rep(5.144,times=new_transits)# 10 knots or 0.5144 m/s
-l.ship <- rep(300,times=new_transits)
-w.ship <- l.ship*0.25
-projected.traffic <- data.frame(v.ship,l.ship,w.ship)
+#new_transits <- 750
+#v.ship <- rep(5.144,times=new_transits)# 10 knots or 0.5144 m/s
+#l.ship <- rep(300,times=new_transits)
+#w.ship <- l.ship*0.25
+#projected.traffic <- data.frame(v.ship,l.ship,w.ship)
 
-params.ship <- rbind(params.ship, projected.traffic)
+#params.ship <- rbind(params.ship, projected.traffic)
 ```
 
 ### Whales  
@@ -238,6 +242,16 @@ To estimate whale widths, we use the ratio of fluke width to body length from Ke
 w.whale = .2074*l.whale 
 ```
 
+Visualize the distributions of these parameters:  
+
+```{r,fig.width=6}
+par(mfrow=c(1,3))
+par(mar=c(4,4,.5,.5))
+hist(v.whale,breaks=20,main=NULL)
+hist(l.whale,breaks=20,main=NULL)
+hist(delta.sd,breaks=20,main=NULL)
+```
+
 ## Run simulator
 
 We are now ready to run our encounter rate simulation. 
@@ -257,15 +271,20 @@ iterations <- 100
 Stage empty objects into which results will be placed during each iteration.  
 
 ```{r}
-df <- data.frame() # details
-mrs <- c() # simple tally of imminent encounters
+encounter_tally <- c() # simple tally of imminent encounters
+summaries <- data.frame() # summaries of each iteration
+records <- list() # list of detailed info for each imminent encounter
 ```
 
 ```{r,eval=FALSE}
+# Setup a multi-pane plot to watch results
+par(mfrow=c(3,3))
+
+# Loop through iterations  
 for(b in 1:iterations){
   
   # Run simulator
-  mr <- encounter_simulator(params.ship=params.ship,
+  sim_b <- encounter_simulator(params.ship=params.ship,
                             v.whale=v.whale,
                             l.whale=l.whale,
                             w.whale=w.whale,
@@ -273,60 +292,88 @@ for(b in 1:iterations){
                             B=100,
                             toplot=FALSE)
   
-  # Store detailed results from each run within the simulation
-  df <- rbind(df, mr)
+  # Summary of each iteration
+  summary_b <- sim_b$summary
+  summary_b$iteration <- b
+  summary_b
+  
+  # Add to summary df for all iterations
+  summaries <- rbind(summaries, summary_b)
   
   # Note number of imminent encounters that occurred in this iteration
-  ieb <- length(which(mr$proximity_m <= 0)) 
-  mrs <- c(mrs,ieb)
+  encounters <- which(summary_b$encounter==1)
+  tot_encounters <- length(encounters) 
+  encounter_tally <- c(encounter_tally,tot_encounters)
+  
+  # Details for each iteration
+  records_b <- sim_b$records
+  
+  # Get records for runs that results in an encounter
+  if(tot_encounters > 0){
+    encounter_records <- records_b[encounters]
+    length(encounter_records)
+    records <- c(records, encounter_records)
+  }
   
   # Save results to RDS in each iteration to ensure work is never lost
-  getwd()
-  saveRDS(list(encounters=mrs,
-               proximities=df),
+  results_list <- list(encounter_tally,
+                       summaries,
+                       records)
+  saveRDS(results_list,
           file=results_filename)
   
   # Print status report
-  print(paste0(Sys.time()," | Run ",b," | ",ieb," imminent encounter(s) ..."))
+  print(paste0(Sys.time()," | Run ",b," | ",tot_encounters," imminent encounter(s) ..."))
   
 }
 ```
 
 ## Visualize results
 
+```{r,eval=FALSE}
+prox <- records[1][[1]]
+encounter_analyst(prox)
+```
+
 Read in your results object, if you need to:  
 
 ```{r,eval=FALSE}
 mrs <- readRDS(results_filename)
+
+head(mrs$encounters)
+head(mrs$proximities)
 ```
 
 Determine mean expected encounter rate: 
 
 ```{r,eval=FALSE}
-encounters <- which(df$proximity_m == 0)
-encounter_rate <- length(encounters) / nrow(df)
-encounter_rate
+mean(mrs$encounters)
+
+sd(mrs$encounters)
+
+bootci(mrs$encounters)
 ```
 
 ```{r,eval=FALSE}
 par(mfrow=c(2,2))
 par(mar=c(4.2,4.2,1,1))
-hist(mrs, main='Imminent encounter rates') 
+hist(mrs$encounters, main='Imminent encounter rates',breaks=20) 
 
-hist(df$proximity_m,
-     breaks=seq(0,(1.1*max(df$proximity_m)),length=30),
+hist(mrs$proximities$proximity_m,
+     breaks=20,
      main="Nearest proximity during each co-occurrence")
 
-hist(df$whale_hdg,
-     breaks=seq(0,(1.1*max(df$whale_hdg)),length=30),
+hist(mrs$proximities$whale_hdg,
+     breaks=20,
      main="Whale heading at nearest proximity")
 
-hist(df$ship_hdg,
-     breaks=seq(0,(1.1*max(df$ship_hdg)),length=30),
+hist(mrs$proximities$ship_hdg,
+     breaks=20,
      main="Vessel heading at nearest proximity")
 
-hist(df$speed_ratio,
-     breaks=seq(0,(1.1*max(df$whale_sog)),length=30),
+speed_ratio <- mrs$proximities$ship_ms / mrs$proximities$whale_ms
+hist(speed_ratio,
+     breaks=20,
      main="Vessel:whale speed ratio at nearest proximity")
 ```
 

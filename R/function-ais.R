@@ -11,23 +11,32 @@ if(FALSE){
 #########################################################
 #########################################################
 
-ais_filter <- function(type_ops,ais){
-  df <- ais
+ais_filter <- function(type_ops,
+                       ais,
+                       min_sog=1, 
+                       min_length=5, 
+                       xlims=c(-129.6,-129.3), 
+                       ylims=c(52.8,53.35)){
+  
+  traffic <- ais
   
   # Filter to vessel type
-  matches <- which(tolower(as.character(df$type)) %in% type_ops) ; matches
-  dfi <- df[matches,] ; nrow(dfi)
+  matches <- which(tolower(as.character(ais$type)) %in% type_ops) 
+  traffic <- traffic[matches,] 
+  nrow(traffic)
   
   # Filter to valid entries
-  dfi <- dfi[dfi$length > 0 & dfi$sog > 0,] 
+  traffic <- traffic %>% dplyr::filter(length > min_length,
+                                       sog > min_sog) 
   
-  head(dfi)
+  # Filter to study area
+  traffic <- traffic %>% dplyr::filter(x > min(xlims),
+                                       x < max(xlims),
+                                       y > min(ylims),
+                                       y < max(ylims))
+  nrow(traffic)
+  return(traffic)
   
-  sogs <- dfi$sog ; unique(sogs)
-  lengths <- dfi$length ; unique(lengths)
-  return(list(n=length(matches),
-              sog=sogs,
-              length=lengths))
 }
 
 #ais_filter(type_ops="passenger ship",ais=ais,summ=summ$id)
