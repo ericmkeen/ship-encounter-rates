@@ -481,7 +481,8 @@ encounter.test <- function(tship,twhale,polys=FALSE){
                     whale_ms=wms,
                     whale_hdg=wtheta,
                     ship_ms=sms,
-                    ship_hdg=stheta)
+                    ship_hdg=stheta,
+                    speed_ratio = sms / wms)
   dfi
   
   # Compile proximity object ===================================================
@@ -493,8 +494,8 @@ encounter.test <- function(tship,twhale,polys=FALSE){
   prox$time_at_closest <- mini
   prox$ship_at_closest <- ship_at_closest
   prox$whale_at_closest <- whale_at_closest
-  prox$ship_polys <- tship
-  prox$whale_polys <- twhale
+  #prox$ship_polys <- tship
+  #prox$whale_polys <- twhale
   
   
   if(FALSE){

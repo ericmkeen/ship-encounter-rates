@@ -13,7 +13,7 @@ if(FALSE){
 
 ais_filter <- function(type_ops,
                        ais,
-                       min_sog=1, 
+                       min_sog=2, 
                        min_length=5, 
                        xlims=c(-129.6,-129.3), 
                        ylims=c(52.8,53.35)){

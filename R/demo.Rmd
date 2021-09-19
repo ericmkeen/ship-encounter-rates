@@ -138,7 +138,6 @@ First, filter the AIS data to the vessel class of interest (column `type` in the
 traffic <- ais
 
 # Define vessel types of interest
-# type_ops <- c("cargo ship","tanker","passenger ship") 
 type_ops <- c("cargo ship","tanker") 
 
 # Filter to vessel type
@@ -148,7 +147,7 @@ nrow(traffic)
   
 # Filter to valid entries
 traffic <- traffic %>% dplyr::filter(length > 5,
-                                     sog > 1) 
+                                     sog > 2) 
 
 # Filter to study area
 traffic <- traffic %>% dplyr::filter(x > -129.6,
@@ -164,8 +163,7 @@ Now simplify these data to only the essential parameters and add an approximatio
 params.ship <- traffic %>% 
   dplyr::select(v.ship = sog,
                 l.ship = length) %>%
-  dplyr::mutate(w.ship = 0.25*l.ship) %>%
-  dplyr::filter(v.ship > 2)
+  dplyr::mutate(w.ship = 0.25*l.ship) 
 ```
 
 Check out the finalized traffic parameter set: 
@@ -184,16 +182,16 @@ hist(params.ship$l.ship,breaks=20,main=NULL)
 hist(params.ship$w.ship,breaks=20,main=NULL)
 ```
 
-To simulate additional traffic on top of the traffic already present, you can add rows to `params.ship`. This code emulates the traffic increase expected in 2023 in Gitga'at waters:  
+To **simulate additional traffic** on top of the traffic already present, you can add rows to `params.ship`. This code emulates the traffic increase expected in 2023 in Gitga'at waters:  
 
 ```{r}
-#new_transits <- 750
-#v.ship <- rep(5.144,times=new_transits)# 10 knots or 0.5144 m/s
-#l.ship <- rep(300,times=new_transits)
-#w.ship <- l.ship*0.25
-#projected.traffic <- data.frame(v.ship,l.ship,w.ship)
+new_transits <- 750
+v.ship <- rep(5.144,times=new_transits)# 10 knots or 0.5144 m/s
+l.ship <- rep(300,times=new_transits)
+w.ship <- l.ship*0.25
+projected.traffic <- data.frame(v.ship,l.ship,w.ship)
 
-#params.ship <- rbind(params.ship, projected.traffic)
+params.ship <- rbind(params.ship, projected.traffic)
 ```
 
 ### Whales  
@@ -316,9 +314,9 @@ for(b in 1:iterations){
   }
   
   # Save results to RDS in each iteration to ensure work is never lost
-  results_list <- list(encounter_tally,
-                       summaries,
-                       records)
+  results_list <- list(encounter_tally = encounter_tally,
+                       summaries = summaries,
+                       records = records)
   saveRDS(results_list,
           file=results_filename)
   
@@ -330,49 +328,40 @@ for(b in 1:iterations){
 
 ## Visualize results
 
-```{r,eval=FALSE}
-prox <- records[1][[1]]
-encounter_analyst(prox)
-```
-
 Read in your results object, if you need to:  
 
 ```{r,eval=FALSE}
-mrs <- readRDS(results_filename)
-
-head(mrs$encounters)
-head(mrs$proximities)
+results <- readRDS(results_filename)
 ```
 
 Determine mean expected encounter rate: 
 
 ```{r,eval=FALSE}
-mean(mrs$encounters)
+mean(results$encounter_tally)
 
-sd(mrs$encounters)
+sd(results$encounter_tally)
 
-bootci(mrs$encounters)
+bootci(results$encounter_tally)
 ```
 
 ```{r,eval=FALSE}
 par(mfrow=c(2,2))
 par(mar=c(4.2,4.2,1,1))
-hist(mrs$encounters, main='Imminent encounter rates',breaks=20) 
+hist(results$encounter_tally, main='Imminent encounter rates',breaks=20) 
 
-hist(mrs$proximities$proximity_m,
+hist(results$summaries$proximity_m,
      breaks=20,
      main="Nearest proximity during each co-occurrence")
 
-hist(mrs$proximities$whale_hdg,
+hist(results$summaries$whale_hdg,
      breaks=20,
      main="Whale heading at nearest proximity")
 
-hist(mrs$proximities$ship_hdg,
+hist(results$summaries$ship_hdg,
      breaks=20,
      main="Vessel heading at nearest proximity")
 
-speed_ratio <- mrs$proximities$ship_ms / mrs$proximities$whale_ms
-hist(speed_ratio,
+hist(results$summaries$speed_ratio,
      breaks=20,
      main="Vessel:whale speed ratio at nearest proximity")
 ```

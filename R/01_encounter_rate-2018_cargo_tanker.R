@@ -23,17 +23,17 @@ head(ais)
 #########################################################
 # PARAMETERS & USER INPUTS 
 
-results_filename <- '../results/emp/2018-tanker-test.rds'
+results_filename <- '../results/emp/2018-tanker.rds'
 iterations <- 1000
 
 # Traffic 
 traffic <- ais_filter(type_ops=c("cargo ship","tanker"),ais=ais)
 traffic
-nrow(traffic)
-v.ship = traffic$sog ; v.ship
-l.ship = traffic$length ; l.ship
-w.ship = .25*l.ship # dist
-params.ship <- data.frame(v.ship,l.ship,w.ship) ; params.ship
+
+params.ship <- traffic %>% 
+  dplyr::select(v.ship = sog,
+                l.ship = length) %>%
+  dplyr::mutate(w.ship = 0.25*l.ship) 
 
 # Whale
 n=1000 # size of distributions
@@ -89,9 +89,9 @@ for(b in 1:iterations){
   }
   
   # Save results to RDS in each iteration to ensure work is never lost
-  results_list <- list(encounter_tally,
-                       summaries,
-                       records)
+  results_list <- list(encounter_tally = encounter_tally,
+                       summaries = summaries,
+                       records = records)
   saveRDS(results_list,
           file=results_filename)
   
