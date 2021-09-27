@@ -10,14 +10,14 @@ setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 source("function-stats.R")
 source("function-impacts.R")
 
-pass <- readRDS("../results/emp/fw-24-20210628-passenger.rds")
-tanker <- readRDS("../results/emp/fw-24-20210629-cargo-tanker.rds")
-prtank <- readRDS("../results/emp/fw-24-20210629-cargo-tanker-projected.rds")
+pass <- readRDS("../results/emp/2018-passenger.rds")
+tanker <- readRDS("../results/emp/2018-tanker.rds")
+prtank <- readRDS("../results/emp/2030-tanker.rds")
 
 ################################################################################
 ################################################################################
 # Prepare whale density
-# Convert density into a distribution, assuming Distance returns a Gaussian estimate
+# Convert density into a distribution, assuming pkg Distance returns a Gaussian estimate
 
 # Reported from Keen et al 2021
 whale_density <- 0.015 # may - october
@@ -60,28 +60,32 @@ total_route <- 31 * 37  # transits * km of route
 total_route
 result <- ship_strike_impacts(total_route = total_route,
                               whale_density = whale_norm,
-                              p_encounter = (tanker$encounters / 100),
+                              p_encounter = (tanker$encounter_tally / 100),
                               p_surface = 0.62,
-                              p_avoidance = 0.55,
+                              p_avoidance = 0.66, # 0.55
                               p_lethality = 0.42,
-                              iterations = 1000)
+                              iterations = 100000)
 result$inputs$total_route
 result$summary
 
 ################################################################################
 ################################################################################
-# 2023 cargo / tanker
+# 2030 cargo / tanker
 
 total_route <- (31 * 37) + (750 * 21)  # transits * km of route
 total_route
 result <- ship_strike_impacts(total_route = total_route,
                               whale_density = whale_norm,
-                              p_encounter = (prtank$encounters / 100),
+                              p_encounter = (prtank$encounter_tally / 100),
                               p_surface = 0.62,
-                              p_avoidance = 0.55,
+                              p_avoidance = 0.66, # 0.55
                               p_lethality = 0.57,
-                              iterations = 100000)
+                              iterations = 100000,
+                              hist_n=10)
 result$inputs$total_route
 result$summary
 
+#########################################################
+#########################################################
+# by Eric Keen @ SWAG, (c) 2021
 

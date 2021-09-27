@@ -39,42 +39,19 @@ make.arena <- function(new=TRUE,r=564.18958354776){
 
 #toplot <- TRUE
 
-ship.course <- function(coords,toplot=TRUE){
-  goods <- 1:nrow(coords)
-  vi <- sample(goods,size=1) ; vi
-  vstart <- coords[vi,] ; vstart
-  if(toplot){points(vstart,pch=16)}
-
-  diffs <- abs(vi - goods) ; diffs
-  goods[diffs < 30] <- NA
-  goods <- goods[!is.na(goods)]
-  length(goods)
-
-  #if(diffs < 30 | diffs > 330){nos <- c(330:360,1:30)
-  #}else{nos <- (vi - 30):(vi+30)} ; nos
-  #goods <- goods[-nos] ; length(goods)
-
-  vi <- sample(goods,size=1) ; vi
-  vend <- coords[vi,] ; vend
-  if(toplot){points(vend,pch=1)}
-
-  x1 <- vstart$x
-  x2 <- vend$x
-  y1 <- vstart$y
-  y2 <- vend$y
+ship.course <- function(coords,toplot=FALSE){
+  ymin_i <- which.min(coords$y) ; ymin_i
+  ymax_i <- which.max(coords$y) ; ymax_i
+  x1 <- coords$x[ymin_i]
+  x2 <- coords$x[ymax_i]
+  y1 <- coords$y[ymin_i]
+  y2 <- coords$y[ymax_i]
   if(toplot){segments(x0=x1,x1=x2,y0=y1,y1=y2)}
-  m <- sqrt((x2 - x1)^2 + (y2 - y1)^2)  ; m
-
-  xint <- seq(x1,x2,length=1000) ; xint
-  yint <- seq(y1,y2,length=1000) ; yint
-  xylm <- lm(yint~xint)
-  b <- xylm$coefficients[1] ; b
-  a <- xylm$coefficients[2] ; a
-
-  hdg <-  (atan2(y2 - y1, x2 - x1) * 180 / pi)  ; hdg
-  #if(hdg < 0){hdg <- 360 + hdg} ; hdg
-
-  return(list(m=m,hdg=hdg,a=a,b=b,x1=x1,x2=x2,y1=y1,y2=y2))
+  m <- y2 - y1
+  hdg <- 0
+  return(list(m=m,hdg=hdg,
+              x1=x1,x2=x2,
+              y1=y1,y2=y2))
 }
 
 #########################################################
@@ -95,7 +72,6 @@ ship.timeline <- function(course,v){
 
   xint <- seq(x1,x2,length=secs) ; xint
   yint <- seq(y1,y2,length=secs) ; yint
-  #points(x=xint,y=yint,pch=16,cex=.3)
 
   t <- 1:secs
   xlm <- lm(xint~t)
@@ -111,7 +87,8 @@ ship.timeline <- function(course,v){
   ins[tbuff > secs] <- 0
   ins
 
-  tl <- data.frame(t=tbuff,x=xbuff,y=ybuff,status=ins)
+  tl <- data.frame(t=tbuff,x=xbuff,y=ybuff,status=ins,v=v)
+  #tl
   return(tl)
 }
 
@@ -119,47 +96,26 @@ ship.timeline <- function(course,v){
 #########################################################
 # Draw ellipse function
 
-draw1ellipse <- function(x, y, a = 1, b = 1, angle = 0, segment=NULL,
-                         arc.only=TRUE, nv = 100, deg = TRUE, border=NULL, col=NA, lty=1, lwd=1, toplot=TRUE){
-  if(is.null(segment)) {
-    # set segment to full ellipse if not supplied
-    if(deg) segment<-c(0,360)
-    else segment<-c(0,2*pi)
-  }
-  # if input is in degrees
-  if (deg) {
-    angle <- angle * pi/180
-    segment <- segment * pi/180
-  }
-  z <- seq(segment[1], segment[2], length = nv + 1)
-  xx <- a * cos(z)
-  yy <- b * sin(z)
-  alpha <- xyangle(xx, yy, directed = TRUE, deg = FALSE)
-  rad <- sqrt(xx^2 + yy^2)
-  xp <- rad * cos(alpha + angle) + x
-  yp <- rad * sin(alpha + angle) + y
-  if (!arc.only) {
-    xp <- c(x, xp, x)
-    yp <- c(y, yp, y)
-  }
-  if(toplot){polygon(xp, yp, border=border, col=col, lty=lty, lwd=lwd, ...)}
-  return(list(x=xp,y=yp))
+ellipse <- function(x,y,
+                    width,height=width,theta=0,
+                    npoints=10,plot=T) {
+  theta <- -1*theta*(pi/180)
+  a <- width/2
+  b <- height/2
+  xcoord <- seq(-a,a,length=npoints)
+  ycoord.neg <- sqrt(b^2*(1-(xcoord)^2/a^2))
+  ycoord.pos <- -sqrt(b^2*(1-(xcoord)^2/a^2))
+  xx <- c(xcoord,xcoord[npoints:1])
+  yy <- c(ycoord.neg,ycoord.pos)
+  x.theta <- xx*cos(2*pi-theta)+yy*sin(2*pi-theta)+x
+  y.theta <- yy*cos(2*pi-theta)-xx*sin(2*pi-theta)+y
+  if(plot){polygon(x.theta,y.theta,density=0)}
+  return(list(coords=data.frame(x=x.theta,y=y.theta),
+                   center=c(x,y),
+                   theta=theta))
 }
 
-## internal function for the internal function
-xyangle <-function(x, y, directed = FALSE, deg = TRUE){
-  if (missing(y)) {
-    y <- x[,2]
-    x <- x[,1]
-  }
-  out <- atan2(y, x)
-  if (!directed)
-    out <- out %% pi
-  if (deg) # if output is desired in degrees
-    out <- out * 180 / pi
-  out
-}
-
+#ellipse(x=0, y=-500, width=.15*200, height=200, theta=310)
 
 #########################################################
 #########################################################
@@ -169,28 +125,31 @@ xyangle <-function(x, y, directed = FALSE, deg = TRUE){
 #course <- sc
 #v <- 5
 #tl <- ship.timeline(course=sc,v=v)
-#l <- 70
-#w <- 20
+#l <- 200
+#w <- 0.15*l
 
-ship.polys <- function(course,tl,l,w,toplot=TRUE){
+ship.polys <- function(course,tl,l,w,toplot=FALSE){
   course
   hdg <- course$hdg ; hdg
-
   ships <- list()
-  i=25
+  i=100
   for(i in 1:nrow(tl)){
     tli <- tl[i,] ; tli
-    ei <- draw1ellipse(x=tli$x, y=tli$y, a = l/2, b = w/2, angle = hdg, nv = 30,toplot=FALSE)
-    ei
-    ships[[i]] <- list(t=tli$t,xy=ei)
+    x <- tli$x
+    y <- tli$y
+    ei <- ellipse(x=x, y=y, width=w, height=l, theta=hdg, plot=F)
+    ships[[i]] <- list(t=tli$t,
+                       v=tli$v,
+                       hdg=hdg,
+                       center=ei$center,
+                       xy=ei$coords)
   }
-
-  if(toplot){polygon(ships[[.5*nrow(tl)]]$xy)}
 
   return(ships)
 }
 
-#tship <- ship.polys(course,tl,l,w)
+#make.arena()
+#tship <- ship.polys(course,tl,l,w,toplot=TRUE)
 
 #########################################################
 #########################################################
@@ -233,7 +192,7 @@ get.starts <- function(coords){
 #########################################################
 # Initiate whale
 
-initiate.whale <- function(whalestarts,toplot=TRUE){
+initiate.whale <- function(whalestarts,toplot=FALSE){
 
   # Starting point
   i <- sample(1:nrow(whalestarts),1) ; i
@@ -256,17 +215,20 @@ initiate.whale <- function(whalestarts,toplot=TRUE){
 #delta.mean <- 0 # change in bearing per 1 minute
 #delta.sd <- 5 # change in bearing per 1 minute
 
-step.whale <- function(w0,v,delta.mean=0,delta.sd,toplot=TRUE){
-  dhdg <- rnorm(1,mean=delta.mean,sd=delta.sd) ; dhdg
+step.whale <- function(w0,v,delta.mean=0,delta.sd,toplot=FALSE){
   m <- v*60 ; m
+  dhdg <- rnorm(1,mean=delta.mean,sd=(delta.sd*(pi/180))) ; dhdg
 
   b0 <- w0$hdg  ; b0
-  b0 <- b0*(pi/180) ; b0
-  dhdg <- dhdg*(pi/180) ; dhdg
-  b1 <- b0 + dhdg ; b1
+  b0 <- b0 * (pi/180)
+  b1 <- b0 + dhdg
+  #b1*(180/pi)
 
-  y <- w0$y + m*sin(b1) ; y
-  x <- w0$x + m*cos(b1) ; x
+  dy <- sin(b1+pi/2)*m ; dy
+  dx <- cos(2*pi - b1 + pi/2)*m ; dx
+
+  x <- w0$x + dx
+  y <- w0$y + dy
 
   if(!is.finite(x)){x <- 1}
 
@@ -275,7 +237,11 @@ step.whale <- function(w0,v,delta.mean=0,delta.sd,toplot=TRUE){
 
   if(toplot){points(x=xint,y=yint,pch=1,col="red",cex=.2)}
   if(toplot){points(x=x,y=y,pch=16,col="red",cex=1)}
-  w1 <- list(x=xint,y=yint,hdg=(b1*180/pi))
+  w1 <- list(x=xint,
+             y=yint,
+             hdg=(b1*(180/pi)) %% 360,
+             v=v)
+  #w1 <- list(x=xint,y=yint,hdg=(b1*180/pi),v=v)
   return(w1)
 }
 
@@ -286,21 +252,21 @@ step.whale <- function(w0,v,delta.mean=0,delta.sd,toplot=TRUE){
 #########################################################
 # Whale track
 
-#t <- nrow(tl)
-#v <- 1.3 # m/s = 4.7 kmh
+#t <- 3000
+#v <- 1.5 # m/s
 #delta.mean <- 0 # change in bearing per 1 minute
-#delta.sd <- 5 # change in bearing per 1 minute
+#delta.sd <- 70 # change in bearing per 1 minute
 #w0
 
-whale.trax <- function(w0,t,v,delta.mean=0,delta.sd){
+whale.trax <- function(w0,t,v,delta.mean=0,delta.sd,toplot=FALSE){
   wi <- w0
-  #steps <- ceiling(t/60)
+  if(toplot){points(wi$x,wi$y,col='red',cex=1)}
   steps <- round(t/60)
   trax <- data.frame()
   i=1
   for(i in 1:steps){
     stepi <- step.whale(w0=wi,v=v,delta.sd=delta.sd) ; stepi
-    si <- data.frame(step=i,x=stepi$x,y=stepi$y,hdg=stepi$hdg) ; si
+    si <- data.frame(step=i,x=stepi$x,y=stepi$y,hdg=stepi$hdg, v=v) ; si
     trax <- rbind(trax,si)
     wi <- list(x=tail(stepi$x,1),
                y=tail(stepi$y,1),
@@ -322,200 +288,172 @@ whale.trax <- function(w0,t,v,delta.mean=0,delta.sd){
 #l <- 20
 #w <- 5
 
-whale.polys <- function(trax,l,w,toplot=TRUE){
-  trax
-
+whale.polys <- function(trax,l,w,toplot=FALSE){
+  #trax
   whales <- list()
   i=25
   for(i in 1:nrow(trax)){
     traxi <- trax[i,] ; traxi
-    ei <- draw1ellipse(x=traxi$x, y=traxi$y, a = l/2, b = w/2, angle = traxi$hdg, nv = 30,toplot=FALSE)
-    ei
-    whales[[i]] <- list(t=traxi$t,xy=ei)
+    x <- traxi$x
+    y <- traxi$y
+    hdg <- traxi$hdg ; hdg
+    ei <- ellipse(x=x, y=y, width=w, height=l, theta=hdg, plot=F)
+    whales[[i]] <- list(t=traxi$t,
+                        v=traxi$v,
+                        hdg=hdg,
+                        center=ei$center,
+                        xy=ei$coords)
   }
-
-  if(toplot){polygon(whales[[.5*nrow(trax)]]$xy,col="purple")}
-
   return(whales)
 }
 
-#twhale <- whale.polys(trax,l,w)
+#twhale <- whale.polys(trax,l,w,toplot=TRUE)
+
+#########################################################
+#########################################################
+
+find_bow <- function(ei,hypo=300, toplot=FALSE){
+
+  #ei <- tship[[1]]
+  #hypo <- 300
+
+  # Build heading arrow
+  ctr <- ei$center
+  x <- ctr[1]
+  y <- ctr[2]
+  theta <- (ei$hdg * (pi/180))
+
+  dx <- cos(2*pi - theta + pi/2)*hypo ; dx
+  dy <- sin(theta + pi/2)*hypo ; dy
+  hdg_x <- seq(x,(x+dx),length=1000)
+  hdg_y <- seq(y,(y+dy),length=1000)
+  if(toplot){lines(hdg_x,hdg_y,col='grey')}
+
+  # Find bow
+  pythag <- function(c1,c2){
+    c2 <- data.frame(x=hdg_x, y=hdg_y)
+    dx <- abs(c1[1] - c2[1])
+    dy <- abs(c1[2] - c2[2])
+    sqrt(dx^2 + dy^2)
+  }
+  ds <- apply(ei$xy,1,pythag)
+  bow_i <- which.min(unlist(lapply(ds,min))) ; bow_i
+  bow <- ei$xy[bow_i,]
+  if(toplot){points(x=bow$x, y=bow$y, col='firebrick', pch=16)}
+
+  ei_return <- list(center=ctr,
+                    hdg=ei$hdg,
+                    hdg_line=data.frame(x=hdg_x, y=hdg_y),
+                    theta=theta,
+                    bow=bow)
+  return(ei_return)
+}
 
 #########################################################
 #########################################################
 # Determine overlap of polygons
 
-#tship
-#twhale
+if(FALSE){
+  coords <- make.arena()
+  course <- ship.course(coords) ; course
+  v = 5 # m/s
+  sc  <- ship.course(coords) ; sc
+  tl <- ship.timeline(course=sc,v=v)
+  l <- 200
+  w <- 0.15*l
+  tship <- ship.polys(sc,tl,l,w,toplot=TRUE)
+  whalestarts <- get.starts(coords)
+  w0 <- initiate.whale(whalestarts) ; w0
+  v <- 1.3 # m/s = 4.7 kmh
+  delta.mean <- 0 # change in bearing per 1 minute
+  delta.sd <- 30 # change in bearing per 1 minute
+  trax <- whale.trax(w0=w0,t=nrow(tl),v=v,delta.sd=delta.sd)
+  twhale <- whale.polys(trax,l,w)
+}
 
-encounter.test <- function(tship,twhale,polys=FALSE){
-  shipts <- c()
-  for(i in 1:length(tship)){
-    ti <- tship[[i]]$t
-    shipts <- c(shipts,ti)
-  }
-  shipts
-  ts <- data.frame(i=1:length(tship),t=shipts) ; ts
 
-  whalets <- c()
-  i=1
-  for(i in 1:length(twhale)){
-    twhale[[i]]
-    ti <- twhale[[i]]$t
-    whalets <- c(whalets,ti)
-  }
-  whalets
-  tw <- data.frame(i=1:length(twhale),t=whalets) ; tw
-
-  commont <- tw$t[which(tw$t %in% ts$t)] ; commont
+encounter.test <- function(tship,twhale){
 
   library(sf)
 
-  i=1
-  proximities <- c()
-  whale_route <- ship_route <- data.frame()
-  for(i in 1:length(commont)){
-    ti <- commont[i]
+  # Ship timestamps
+  shipts <- sapply(tship,'[[',1)
+  ts <- data.frame(i=1:length(tship),t=shipts)
+  ts
 
-    # Format for spatial overlap
-    si <- tship[[i]]$xy ; si
+  # Whale timestamps
+  whalets <- sapply(twhale,'[[',1)
+  tw <- data.frame(i=1:length(twhale),t=whalets)
+  tw
+
+  # Which timestamps do the two things share?
+  commont <- tw$t[which(tw$t %in% ts$t)] ; commont
+  commont
+
+  # Subset tracks to those common timestamps
+  tsi <- ts$i[ts$t %in% commont]
+  tsi <- tship[tsi]
+
+  twi <- tw$i[tw$t %in% commont]
+  twi <- twhale[twi]
+
+  #plot(1,type='n',xlim=c(-700,700),ylim=c(-700,700)) ; for(i in 1:length(twi)){lines(x=twi[[i]]$xy$x, y=twi[[i]]$xy$y,col=adjustcolor('black',alpha.f=.1))}
+
+  # Get centers of ship and whales at each t
+  ship_centers <- sapply(tsi,'[[',4)
+  whale_centers <- sapply(twi,'[[',4)
+
+  # Extract the ellipse shapes for those timestamps
+  spoly <- lapply(tsi,function(tship){
+    si <- tship$xy
     c1 = cbind(si$x, si$y)
-    r1 = rbind(c1, c1[1, ])  # join
+    r1 = rbind(c1, c1[1, ])
     sip <- st_polygon(list(r1)) ; sip
+    return(sip)
+  })
 
-    wi <- twhale[[i]]$xy ; wi
-    c1 = cbind(wi$x, wi$y)
-    r1 = rbind(c1, c1[1, ])  # join
-    wip <- st_polygon(list(r1))
-    
-    # Overlap test
-    min_dist <- st_distance(sip,wip)
-    proximities[i] <- min_dist
-    
-    sri <- data.frame(si) %>% 
-      dplyr::summarize(x=mean(x),y=mean(y)) %>%
-      dplyr::mutate(t=ti,proximity=min_dist)
-    ship_route <- rbind(ship_route,sri)
-    
-    wri <- data.frame(wi) %>% 
-      dplyr::summarize(x=mean(x),y=mean(y)) %>%
-      dplyr::mutate(t=ti,proximity=min_dist)
-    whale_route <- rbind(whale_route,wri)
-  }
-  
-  proximities
-  length(proximities)
-  length(commont)
-  mini <- which.min(proximities) ; mini
-  
-  # Proximity time series  =====================================================
-  proximity_timeseries <- proximities
+  wpoly <- lapply(twi,function(twhale){
+    si <- twhale$xy
+    c1 = cbind(si$x, si$y)
+    r1 = rbind(c1, c1[1, ])
+    wip <- st_polygon(list(r1)) ; wip
+    return(wip)
+  })
 
-  # Closest proximity ==========================================================
-  closest_distance <- proximities[mini] ; closest_distance
+  # Get distance between ship and vessel at each t
+  proximities <- mapply(st_distance,spoly,wpoly)
 
-  # Positions at closest proximity  ============================================
-  ship_at_closest <- tship[[mini]]$xy ; ship_at_closest
-  whale_at_closest <- twhale[[mini]]$xy ; whale_at_closest
-  
-  # Whale heading & speed at closest proximity =================================
+  #par(mar=c(4,4,.5,.5))
+  #plot(proximities,type='l')
 
-  if(mini==length(twhale)){
-    wxy1 <- twhale[[mini-1]]$xy ; wxy1
-    wxy2 <- twhale[[mini]]$xy ; wxy2
-  }else{
-    wxy1 <- twhale[[mini]]$xy ; wxy1
-    wxy2 <- twhale[[mini+1]]$xy ; wxy2
-  }
-  x1 = wxy1$x[1] ; x2 = wxy2$x[1] ; y1 = wxy1$y[1] ; y2 = wxy2$y[1]
-  dx <- (x2 - x1) ; dx
-  dy <- (y2 - y1) ; dy
+  # Create encounter summary
+  enc_summary <- data.frame(t = sapply(tsi,'[[',1),
+                            meters = proximities,
+                            ship_hdg = sapply(tsi,'[[',3),
+                            ship_v = sapply(tsi,'[[',2),
+                            ship_x = round(ship_centers[1,],3),
+                            ship_y = ship_centers[2,],
+                            whale_hdg = sapply(twi,'[[',3),
+                            whale_v = sapply(twi,'[[',2),
+                            whale_x = whale_centers[1,],
+                            whale_y = whale_centers[2,])
+  enc_summary
 
-  # Get whale speed
-  wms <- sqrt(dx^2 + dy^2) ; wms
+  # Get moment of closest proximity
+  min_i <- which.min(proximities)
+  ship_min <- tsi[[min_i]]
+  whale_min <- twi[[min_i]]
 
-  # Get whale heading
-  library(matlib)
-  p1 <- c(0,1) # simulate vertical line
-  p2 <- c(dx,dy)
-  theta <- as.numeric(angle(p1,p2))
-  if(dx  < 0){theta <- 360 - theta}
-  wtheta <- theta
+  # Get polygon information at that time
+  ship_min$bow <- find_bow(ship_min)
+  whale_min$bow <- find_bow(whale_min)
 
-  # Plot situation
-  if(FALSE){
-    scales <- c(abs(dx),abs(dy)) ; scales
-    plot(1,type='n',
-         xlim=c((x1 - max(scales)),(x1+max(scales))),
-         ylim=c((y1 - max(scales)),(y1+max(scales))))
-    text(x=x1,y=y1,label='xy1')
-    text(x=x2,y=y2,label='xy2')
-  }
-
-  # Vessel heading & speed =====================================================
-
-  if(mini==length(tship)){
-    wxy1 <- tship[[mini-1]]$xy ; wxy1
-    wxy2 <- tship[[mini]]$xy ; wxy2
-  }else{
-    wxy1 <- tship[[mini]]$xy ; wxy1
-    wxy2 <- tship[[mini+1]]$xy ; wxy2
-  }
-  x1 = wxy1$x[1] ; x2 = wxy2$x[1] ; y1 = wxy1$y[1] ; y2 = wxy2$y[1]
-  dx <- (x2 - x1) ; dx
-  dy <- (y2 - y1) ; dy
-
-  # Get ship speed
-  sms <- sqrt(dx^2 + dy^2) ; sms
-
-  # Get ship heading
-  p1 <- c(0,1) # simulate vertical line
-  p2 <- c(dx,dy)
-  theta <- as.numeric(angle(p1,p2))
-  if(dx  < 0){theta <- 360 - theta}
-  stheta <- theta
-
-  # Compile summary dataframe ==================================================
-  dfi <- data.frame(encounter= ifelse(closest_distance==0,1,0),
-                    proximity_m=closest_distance,
-                    whale_ms=wms,
-                    whale_hdg=wtheta,
-                    ship_ms=sms,
-                    ship_hdg=stheta,
-                    speed_ratio = sms / wms)
-  dfi
-  
   # Compile proximity object ===================================================
   prox <- list()
-  prox$summary <- dfi
-  prox$ship_track <- ship_route
-  prox$whale_track <- whale_route
-  prox$proximity_timeseries <- proximity_timeseries
-  prox$time_at_closest <- mini
-  prox$ship_at_closest <- ship_at_closest
-  prox$whale_at_closest <- whale_at_closest
-  #prox$ship_polys <- tship
-  #prox$whale_polys <- twhale
-  
-  
-  if(FALSE){
-    par(mfrow=c(2,1))
-    par(mar=c(4.2,4.2,.5,.5))
-    plot(prox$proximity_timeseries,type='l',xlab='Timestamp', ylab='Proximity (m)')
-    abline(v=prox$time_at_closest,col='red',lty=3)
-      
-    make.arena()
-    lines(x=prox$ship_track$x,
-          y=prox$ship_track$y,
-          col='red')
-    lines(x=prox$whale_track$x,
-          y=prox$whale_track$y,
-          col='blue')
-    
-    points(x=ship_0$x, y=ship_0$y,type='l',col='firebrick')
-    points(x=whale_0$x, y=whale_0$y,type='l',col='darkblue',lwd=2)
-  }
-  
+  prox$timeline <- enc_summary
+  prox$ship <- ship_min
+  prox$whale <- whale_min
+
   return(prox)
 }
 
@@ -529,7 +467,7 @@ if(FALSE){
   # Parameters
   v.ship = 5 # m/s
   l.ship = 220 # meters
-  w.ship = 50 # meters
+  w.ship = 30 # meters
   params.ship <- data.frame(v.ship,l.ship,w.ship)
   v.whale = 1.5 # m/s
   l.whale = 25 # meters
@@ -537,7 +475,6 @@ if(FALSE){
   delta.sd = 50 # degr
   toplot=TRUE
   B <- 10
-  keep.records <- 'encounters'
 }
 
 encounter_simulator <- function(params.ship,
@@ -545,9 +482,10 @@ encounter_simulator <- function(params.ship,
                                 w.whale,
                                 delta.sd,
                                 B=100,
-                                toplot=TRUE){
+                                toplot=TRUE,
+                                plot_timeseries=FALSE){
   # Setup
-  coords <- make.arena()
+  coords <- make.arena(new=toplot)
   whalestarts <- get.starts(coords)
 
   # Process
@@ -556,7 +494,7 @@ encounter_simulator <- function(params.ship,
   records <- list()
   hits <- list()
   for(b in 1:B){
-    coords <- make.arena()
+    coords <- make.arena(new=FALSE)
     sc <- ship.course(coords)
 
     # Setup params
@@ -579,7 +517,7 @@ encounter_simulator <- function(params.ship,
                         toplot=toplot)
 
     # Whale course & timing
-    w0 <- initiate.whale(whalestarts)
+    w0 <- initiate.whale(whalestarts,toplot=FALSE)
     trax <- whale.trax(w0=w0,
                        t=nrow(tl),
                        v=v,
@@ -590,16 +528,29 @@ encounter_simulator <- function(params.ship,
                           toplot=toplot)
 
     # Was there an imminent encounter?
-    encounter <- encounter.test(tship,twhale) 
+    encounter <- encounter.test(tship,twhale)
     names(encounter)
-    
+
+    if(plot_timeseries){plot(encounter$timeline$meters,
+                             ylim=c(0,1200),type='l',col='firebrick')}
+
     # Store run b
+    encounter$summary <- data.frame(closest=min(encounter$timeline$meters),
+                                    ship_v=vs,
+                                    ship_l=lship,
+                                    ship_w=wship,
+                                    whale_v=v,
+                                    whale_l=lwhale,
+                                    whale_w=wwhale,
+                                    whale_deltasd=deltasd)
+    encounter$summary
+    encounter$summary$encounter <- ifelse(encounter$summary$closest==0,1,0)
     encounter$summary$run <- b
     encounter$summary
-    
+
     # Store summary
     MR <- rbind(MR,encounter$summary)
-    
+
     # Store record
     records[[b]] <- encounter
   }
@@ -616,30 +567,64 @@ encounter_simulator <- function(params.ship,
 
 # Takes a prox object
 
+if(FALSE){
+  prox <- records
+  prox <- prox[[1]]
+  length(prox)
+  names(prox)
+  prox$whale$bow$hdg
+  encounter_analyst(prox)
+
+  ei <- prox$whale$bow
+}
+
 encounter_analyst <- function(prox){
-  tship <- prox$ship_polys
-  twhale <- prox$whale_polys
-  
+  ship <- prox$ship
+  whale <- prox$whale
+  tl <- prox$timeline
+
   par(mfrow=c(1,2))
-  
+
   # Situation
-  #make.arena()
   par(mar=c(.5,.5,3,.5))
+  #make.arena()
   plot(1,type='n',xlim=c(-600,600),ylim=c(-600,600),axes=FALSE,ann=FALSE)
   title(main='Overview')
-  lines(x=prox$ship_track$x,
-        y=prox$ship_track$y,
+
+  # ship's course
+  lines(x=tl$ship_x,
+        y=tl$ship_y,
         col='red')
-  lines(x=prox$whale_track$x,
-        y=prox$whale_track$y,
+
+  # ship's position at closest proximity
+  lines(x=ship$xy$x,
+        y=ship$xy$y,
+        col='firebrick')
+
+  # ship's heading
+  lines(x=ship$bow$hdg_line$x,
+        y=ship$bow$hdg_line$y,
+        col='grey')
+
+  # whale's course
+  lines(x=tl$whale_x,
+        y=tl$whale_y,
         col='blue')
-  points(x=prox$ship_at_closest$x, y=prox$ship_at_closest$y,type='l',col='firebrick')
-  points(x=prox$whale_at_closest$x, y=prox$whale_at_closest$y,type='l',col='darkblue',lwd=2)
-  
+
+  # whale's polygon at closest proximity
+  lines(x=whale$xy$x,
+        y=whale$xy$y,
+        col='blue')
+
+  # whale's heading
+  lines(x=whale$bow$hdg_line$x,
+        y=whale$bow$hdg_line$y,
+        col='grey')
+
   par(mar=c(4.2,4.2,3,.5))
-  plot(prox$proximity_timeseries,ylim=c(0,1200),
+  plot(tl$meters,ylim=c(0,1200),
        type='l',xlab='Timestamp', ylab='Proximity (m)',main='Proximity timeseries')
-  abline(v=prox$time_at_closest,col='red',lty=3)
-  
+  abline(v=tl$t[which.min(tl$meters)],col='red',lty=3)
+
   par(mfrow=c(1,1))
 }

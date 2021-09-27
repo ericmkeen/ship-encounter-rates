@@ -12,6 +12,7 @@ ship_strike_impacts <- function(total_route,
                                 p_avoidance,
                                 p_lethality,
                                 iterations=10000,
+                                hist_n = 20,
                                 verbose=TRUE,
                                 toplot=TRUE){
 
@@ -50,7 +51,8 @@ ship_strike_impacts <- function(total_route,
 
   if(toplot){
     par(mfrow=c(3,2))
-    hist(cooccurrence,main='Cooccurrences')
+    hist(cooccurrence,main='Cooccurrences',
+         breaks=seq(0.99*min(cooccurrence),1.01*max(cooccurrence),length=hist_n))
   }
 
   # encounters  ==================================================================
@@ -63,7 +65,8 @@ ship_strike_impacts <- function(total_route,
     encounters[i] <- sum(ifelse(runif(coi,min=0,max=1) < eri,1,0))
   }
   if(toplot){
-    hist(encounters,main='Encounters')
+    hist(encounters,main='Encounters',
+         breaks=seq(0.99*min(encounters),1.01*max(encounters),length=hist_n))
   }
   table(encounters)
   mean(encounters)
@@ -84,7 +87,8 @@ ship_strike_impacts <- function(total_route,
     surfaces[i] <- surfi
   }
   if(toplot){
-    hist(surfaces,main='Surface overlaps')
+    hist(surfaces,main='Surface overlaps',
+         breaks=seq(0.99*min(surfaces),1.01*max(surfaces),length=hist_n))
   }
   table(surfaces)
 
@@ -100,7 +104,8 @@ ship_strike_impacts <- function(total_route,
     collisions[i] <- collidi
   }
   if(toplot){
-    hist(collisions,main='Collisions')
+    hist(collisions,main='Collisions',
+         breaks=seq(0.99*min(collisions),1.01*max(collisions),length=hist_n))
   }
   table(collisions)
 
@@ -116,7 +121,8 @@ ship_strike_impacts <- function(total_route,
     mortalities[i] <- morti
   }
   if(toplot){
-    hist(mortalities,main='Mortalities')
+    hist(mortalities,main='Mortalities',
+         breaks=seq(0.99*min(mortalities),1.01*max(mortalities),length=hist_n))
     par(mfrow=c(1,1))
   }
   table(mortalities)

@@ -1,6 +1,6 @@
 #########################################################
 #########################################################
-# ENCOUNTER RATES - RESULTS - 2018 and 2023
+# ENCOUNTER RATES - RESULTS - 2018 and 2030
 # Eric M. Keen, v. June 2021
 #########################################################
 #########################################################
@@ -15,7 +15,7 @@ source("function-stats.R")
 # Load data
 pass <- readRDS("../results/emp/2018-passenger.rds")
 tanker <- readRDS("../results/emp/2018-tanker.rds")
-prtank <- readRDS("../results/emp/2023-tanker.rds")
+prtank <- readRDS("../results/emp/2030-tanker.rds")
 
 
 #########################################################
@@ -25,7 +25,7 @@ prtank <- readRDS("../results/emp/2023-tanker.rds")
 hist_enc <- function(enc,shade="black",add=FALSE){
   par(mar=c(4.2,4.2,1,.5))
   hist(enc,
-       breaks=seq(0,20,by=1),
+       breaks=seq(0,25,by=1),
        col=adjustcolor(shade,alpha.f=.3),
        border=adjustcolor(shade,alpha.f=.1),
        main=NULL,
@@ -38,6 +38,7 @@ hist_prox <- function(prox,shade="black",add=FALSE){
   hist(prox[prox > 0],
        breaks=seq(0,1500,by=10),
        xlim=c(0,1200),
+       ylim=c(0,1800),
        col=adjustcolor(shade,alpha.f=.4),
        border=NA,
        main=NULL,,add=add,
@@ -51,13 +52,13 @@ hist_prox <- function(prox,shade="black",add=FALSE){
 
 #pdf(file="../figures/dists/dists.pdf",height=8,width=6)
 par(mfrow=c(2,1))
-hist_enc(pass$encounters,shade="black",add=FALSE) # Passenger ships
-hist_enc(tanker$encounters,shade="darkblue",add=TRUE) # Cargo + tanker
-hist_enc(prtank$encounters,shade="darkorange",add=TRUE) # Cargo + tanker - projected
+hist_enc(pass$encounter_tally,shade="black",add=FALSE) # Passenger ships
+hist_enc(tanker$encounter_tally,shade="darkblue",add=TRUE) # Cargo + tanker
+hist_enc(prtank$encounter_tally,shade="darkorange",add=TRUE) # Cargo + tanker - projected
 
-hist_prox(pass$proximities,shade="black",add=FALSE) # Passenger ships
-hist_prox(tanker$proximities,shade="darkblue",add=TRUE) # Cargo + tanker
-hist_prox(prtank$proximities,shade="darkorange",add=TRUE) # Cargo + tanker - projected
+hist_prox(pass$summaries$proximity_m,shade="black",add=FALSE) # Passenger ships
+hist_prox(tanker$summaries$proximity_m,shade="darkblue",add=TRUE) # Cargo + tanker
+hist_prox(prtank$summaries$proximity_m,shade="darkorange",add=TRUE) # Cargo + tanker - projected
 
 par(mfrow=c(1,1))
 #dev.off()
@@ -66,23 +67,23 @@ par(mfrow=c(1,1))
 #########################################################
 # Stats
 
-mrs <- pass$encounters
-mrs <- tanker$encounters
-mrs <- prtank$encounters
+mrs <- pass$encounter_tally
+mrs <- tanker$encounter_tally
+mrs <- prtank$encounter_tally
 
 mean(mrs)
 bootci(mrs)
 quantile(mrs,0.05)
 quantile(mrs,0.95)
 
-pval(val1=pass$encounters,
-     val2=tanker$encounters)
+pval(val1=pass$encounter_tally,
+     val2=tanker$encounter_tally)
 
-pval(val1=pass$encounters,
-     val2=prtank$encounters)
+pval(val1=pass$encounter_tally,
+     val2=prtank$encounter_tally)
 
-pval(val1=tanker$encounters,
-     val2=prtank$encounters)
+pval(val1=tanker$encounter_tally,
+     val2=prtank$encounter_tally)
 
 #########################################################
 #########################################################

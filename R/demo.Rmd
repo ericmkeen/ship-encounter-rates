@@ -32,6 +32,7 @@ library(dplyr)
 library(truncnorm)
 library(solartime)
 library(boot)
+library(DescTools)
 library(sf)
 library(matlib)
 library(manipulateWidget)
@@ -172,7 +173,7 @@ Check out the finalized traffic parameter set:
 head(params.ship)
 ```
 
-Visualize the distributions of these parameters:  
+Visualize the distributions of these parameters (there are few values, since traffic in this area is currently quite rare):  
 
 ```{r,fig.width=6}
 par(mfrow=c(1,3))
@@ -182,7 +183,7 @@ hist(params.ship$l.ship,breaks=20,main=NULL)
 hist(params.ship$w.ship,breaks=20,main=NULL)
 ```
 
-To **simulate additional traffic** on top of the traffic already present, you can add rows to `params.ship`. This code emulates the traffic increase expected in 2023 in Gitga'at waters:  
+To **simulate additional traffic** on top of the traffic already present, you can add rows to `params.ship`. This code emulates the traffic increase expected in 2030 in Gitga'at waters:  
 
 ```{r}
 new_transits <- 750
@@ -197,6 +198,8 @@ params.ship <- rbind(params.ship, projected.traffic)
 ### Whales  
 
 The parameters that characterize a whale in the encounter simulator can be defined as either a single value (e.g., 20 meters), or as a distribution of values from which to draw random values.  In this example, we will do the latter. 
+
+(*Note:* In the analysis, this code is implemented in `00_whale.R`).  
 
 Define the size of the distributions you will use: 
 
@@ -220,10 +223,16 @@ v.whale = truncnorm::rtruncnorm(n,
 
 #### Whale directivity
 
-Whale directivity, which we define in our paper as the standard deviation of change in course heading from one minute to the next, is also drawn from Hendricks et al. (2021).   
+Whale directivity, which we define in our paper as the standard deviation of change in course heading from one minute to the next, is also drawn from Hendricks et al. (2021). In that paper, 62 acoustic tracks of at least 30 minutes duration were analyzed. Refer to `prep_delta_sd.R` for details on how this was determined. Note that, in this analysis, the standard deviation of course changes were log-transformed so that they followed a Gaussian distribution.   
 
 ```{r}
-delta.sd = truncnorm::rtruncnorm(n,0,90,30,10)
+# Produce distribution of log-transformed values
+delta.sd = rnorm(n, 
+                 mean = 1.0424,
+                 sd = 0.82477)
+
+# Revert from log-transformed to actual SD of course change
+delta.sd <- exp(delta.sd)
 ```
 
 #### Whale dimensions
@@ -321,7 +330,8 @@ for(b in 1:iterations){
           file=results_filename)
   
   # Print status report
-  print(paste0(Sys.time()," | Run ",b," | ",tot_encounters," imminent encounter(s) ..."))
+  print(paste0(Sys.time()," | Run ",b," | ",
+               tot_encounters," imminent encounter(s) ..."))
   
 }
 ```
@@ -330,45 +340,34 @@ for(b in 1:iterations){
 
 Read in your results object, if you need to:  
 
-```{r,eval=FALSE}
+```{r,eval=TRUE}
 results <- readRDS(results_filename)
 ```
 
 Determine mean expected encounter rate: 
 
-```{r,eval=FALSE}
-mean(results$encounter_tally)
+```{r,eval=TRUE}
+DescTools::BootCI(results$encounter_tally, FUN=mean)
 
 sd(results$encounter_tally)
-
-bootci(results$encounter_tally)
 ```
 
-```{r,eval=FALSE}
+```{r,eval=TRUE, fig.width=6, fig.height=6}
 par(mfrow=c(2,2))
-par(mar=c(4.2,4.2,1,1))
-hist(results$encounter_tally, main='Imminent encounter rates',breaks=20) 
+par(mar=c(4.2,4.2,2,1))
+hist(results$encounter_tally, 
+     xlab=NULL, main='Encounter rate',
+     breaks=seq(0,1.2*max(results$encounter_tally),length=20)) 
 
 hist(results$summaries$proximity_m,
-     breaks=20,
-     main="Nearest proximity during each co-occurrence")
+     breaks=20, xlab=NULL,
+     main="Nearest proximity")
 
 hist(results$summaries$whale_hdg,
-     breaks=20,
-     main="Whale heading at nearest proximity")
+     breaks=20, xlab=NULL,
+     main="Whale heading at proximity")
 
 hist(results$summaries$ship_hdg,
-     breaks=20,
-     main="Vessel heading at nearest proximity")
-
-hist(results$summaries$speed_ratio,
-     breaks=20,
-     main="Vessel:whale speed ratio at nearest proximity")
+     breaks=20, xlab=NULL,
+     main="Vessel heading at proximity")
 ```
-
-## Comparing results across vessel types or years
-
-
-## Conducting a sensitivity analysis
-
-

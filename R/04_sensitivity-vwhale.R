@@ -4,40 +4,12 @@
 #########################################################
 #########################################################
 
-library(rstudioapi)
-library(truncnorm)
-library(solartime)
-
 # Set working directory to folder that this R file is in
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
-# Load functions
-source("function-simulator.R")
-source("function-ais.R")
+# Load sensitivity analysis defaults
+source('00_sensitivity.R')
 
-# Prep ais data
-source('00_ais.R')
-head(ais)
-
-#########################################################
-#########################################################
-# PARAMETERS & USER INPUTS 
-
-iterations <- 100
-
-# Traffic 
-traffic <- ais_filter(type_ops=c("passenger ship"),ais=ais)
-v.ship = traffic$sog ; v.ship
-l.ship = traffic$length ; l.ship
-w.ship = .25*l.ship # dist
-params.ship <- data.frame(v.ship,l.ship,w.ship) ; params.ship
-
-# Whale
-n=1000 # size of distributions
-v.whale = truncnorm::rtruncnorm(n,0,2.63,1.3611,.5) # meters per sec dist # based on total mean + SD from Hendricks et al 2021
-delta.sd = truncnorm::rtruncnorm(n,0,90,30,10) # dist # drawn from Hendricks et al 2021
-l.whale = truncnorm::rtruncnorm(n,0,40,18.60375,1.649138) # meters # based mean + SD from Keen et al 2021 (UAS)
-w.whale = .2074*l.whale # meters # based on fluke / body length ratio in Keen et al 2021 (UAS)
 
 #########################################################
 #########################################################
@@ -47,13 +19,14 @@ filecore <- 'v-whale'
 v.whales <- c(0.5,1,1.5,2,2.5,3,3.5,4) ; v.whales
 vars <- v.whales
 
+
 #########################################################
 #########################################################
 # SIMULATOR
 
 for(varb in 1:length(vars)){
   vari <- vars[varb] ; vari
-  
+
   # Encounter simulator
   df <- data.frame() # details
   mrs <- c() # imminent encounters
@@ -69,7 +42,7 @@ for(varb in 1:length(vars)){
     df <- rbind(df, mr)
     ieb <- length(which(mr$proximity_m <= 0)) # store N imminent encounters for this b
     mrs <- c(mrs,ieb) # store N imminent encounters
-    
+
     # Save to RDS
     getwd()
     saveRDS(list(encounters=mrs,
@@ -77,7 +50,7 @@ for(varb in 1:length(vars)){
             file=paste0("../results/sim/",filecore,"-",vari,".rds"))
     print(paste0(Sys.time()," | ",filecore," ",vari," m/s | Run ",b," | ",ieb," imminent encounter(s) ..."))
   }
-  
+
 }
 
 #########################################################
