@@ -113,23 +113,4 @@ for(b in 1:iterations){
 
 #########################################################
 #########################################################
-# Visualize & store result
-
-mrs <- readRDS(results_filename)
-
-# Realized iterations
-length(mrs$encounter_tally)
-
-# Statistics
-mean(mrs$encounter_tally)
-BootCI(mrs$encounter_tally,FUN=mean)
-quantile(mrs$encounter_tally,c(0.05,0.95))
-sd(mrs$encounter_tally)
-
-# Plots
-par(mfrow=c(1,1))
-par(mar=c(4.2,4.2,1,1)) ; hist(mrs$encounter_tally, main='Imminent encounter rates')
-
-#########################################################
-#########################################################
 # by Eric Keen @ SWAG, (c) 2021
