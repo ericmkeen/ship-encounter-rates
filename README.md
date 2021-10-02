@@ -1,4 +1,4 @@
-# Whale-ship encounter rater
+# Whale-ship encounter rate
 
 A simulation-based tool to build distributions of whale-vessel encounter rates.  
 
